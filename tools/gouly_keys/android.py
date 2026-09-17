@@ -135,9 +135,12 @@ class AndroidEnv:
             for tool in (target / "bin").iterdir():
                 tool.chmod(0o755)
 
+    def _sdk_packages_installed(self) -> bool:
+        return self.adb.exists() and self.emulator.exists() and (self.system_image / "system.img").exists()
+
     def _install_sdk_packages(self) -> None:
         packages = ["platform-tools", "emulator", f"system-images;android-{API_LEVEL};google_apis;{ABI}"]
-        if self.adb.exists() and self.emulator.exists() and (self.system_image / "system.img").exists():
+        if self._sdk_packages_installed():
             return
         step("Downloading the Android emulator and system image (about 2 GB, one time only)")
         subprocess.run(
@@ -151,8 +154,12 @@ class AndroidEnv:
             [str(self.sdkmanager), f"--sdk_root={self.sdk}", f"--package_file={package_file}"],
             input="y\n" * 50, text=True, env=self.env(),
         )
-        if result.returncode != 0 or not (self.system_image / "system.img").exists():
-            raise SetupError("Installing the Android SDK packages failed (see the output above).")
+        # Newer command-line tools forward sdkmanager to the "Android CLI", which can crash on exit
+        # (e.g. 0xC0000409 on Windows) after installing everything, so check the files, not the exit code.
+        if not self._sdk_packages_installed():
+            raise SetupError(
+                f"Installing the Android SDK packages failed (exit code {result.returncode}, see the output above)."
+            )
 
     def _create_avd(self) -> None:
         avd_dir = self.avd_home / f"{AVD_NAME}.avd"
