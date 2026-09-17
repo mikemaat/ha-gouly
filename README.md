@@ -65,6 +65,10 @@ When you're done, `gouly-keys clean` deletes the emulator and downloads.
 - **The app download fails**: download the Gouly Lighting app yourself (`.apk`, `.xapk` or `.apks`,
   package `com.goulyled.ledlight`) and run `gouly-keys --apk path/to/file`.
 - **The app crashes or closes**: run gouly-keys again. The emulator and downloads are reused.
+- **A Gouly app update broke gouly-keys**: gouly-keys uses the latest Gouly app, and if that
+  doesn't work it automatically retries with the last version it was tested with. You can also ask
+  for that version directly with `gouly-keys --app-version known-good`, or pick a specific Play
+  Store version code, e.g. `--app-version 109`. Please open an issue so the tool can be updated.
 - **Controller not found on the network**: that's fine if the computer running gouly-keys isn't on
   the same network as your lights; Home Assistant will look for it during setup. To retry later,
   run `gouly-keys find` in the folder with `gouly_devices.json`.

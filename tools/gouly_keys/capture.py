@@ -17,6 +17,12 @@ from .apk import PACKAGE
 from .ui import download, info, step
 
 REMOTE_SERVER = "/data/local/tmp/gouly-frida-server"
+# How long to wait for the hook to report in after the app starts.
+HOOK_TIMEOUT = 90
+
+
+class CaptureFailed(SetupError):
+    """The app or the hook didn't work; trying another app version may help."""
 
 
 def start_frida_server(env: AndroidEnv) -> None:
@@ -99,7 +105,10 @@ def capture_devices(
     detached: list[str] = []
     session.on("detached", lambda reason, crash: detached.append(str(reason)))
     script.on("message", on_message)
-    script.load()
+    try:
+        script.load()
+    except Exception as err:  # noqa: BLE001 - frida raises several unrelated error types here
+        raise CaptureFailed(f"The hook failed to load in the Gouly app: {err}") from err
     device.resume(pid)
 
     devices: dict[str, dict] = {}
@@ -115,11 +124,16 @@ def capture_devices(
                 announced.add(dev_id)
                 on_device(dev)
 
+    hooks_reported = False
     try:
         while True:
             if detached:
-                raise SetupError(f"The Gouly app closed unexpectedly ({detached[0]}). Run gouly-keys again.")
+                if devices:
+                    break
+                raise CaptureFailed(f"The Gouly app closed unexpectedly ({detached[0]}).")
             now = time.monotonic()
+            if not hooks_reported and now - started > HOOK_TIMEOUT:
+                raise CaptureFailed("The hook never started inside the Gouly app.")
             if now - started > timeout:
                 break
             if last_new is not None and now - last_new > idle_seconds:
@@ -129,7 +143,16 @@ def capture_devices(
                 msg = messages.get(timeout=1)
             except queue.Empty:
                 continue
-            if msg.get("type") == "gouly-ready":
+            if msg.get("type") == "gouly-hooks":
+                hooks_reported = True
+                if not msg.get("hooked"):
+                    raise CaptureFailed(
+                        "This version of the Gouly app doesn't have the code gouly-keys hooks into "
+                        f"(missing: {', '.join(msg.get('missing') or [])}). The app has probably changed."
+                    )
+                if msg.get("missing"):
+                    info(f"(some hooks unavailable: {', '.join(msg['missing'])})")
+            elif msg.get("type") == "gouly-ready":
                 on_ready()
             elif msg.get("type") == "gouly-device":
                 found = msg["device"]
@@ -138,6 +161,8 @@ def capture_devices(
                     first_seen[dev_id] = last_new = time.monotonic()
                 devices[dev_id] = {**devices.get(dev_id, {}), **{k: v for k, v in found.items() if v}}
             elif msg.get("type") == "agent-error":
+                if not hooks_reported:
+                    raise CaptureFailed(f"The hook crashed inside the Gouly app: {msg.get('description')}")
                 info(f"(hook warning: {msg.get('description')})")
         announce(ready_only=False)
     finally:

@@ -289,13 +289,21 @@ class AndroidEnv:
 
     # Apps ------------------------------------------------------------------------------
 
-    def installed_version(self, package: str) -> str | None:
+    def installed_version_code(self, package: str) -> int | None:
         output = self.adb_cmd("shell", "dumpsys", "package", package, check=False)
-        match = re.search(r"versionName=(\S+)", output)
-        return match.group(1) if match else None
+        match = re.search(r"versionCode=(\d+)", output)
+        return int(match.group(1)) if match else None
 
-    def install_apks(self, apks: list[Path]) -> None:
+    def install_apks(self, package: str, apks: list[Path], version_code: int | None = None) -> None:
+        """Install (or replace) an app. Skips reinstalling the same version, which keeps the login."""
+        installed = self.installed_version_code(package)
+        if version_code is not None and installed == version_code:
+            info("The app is already installed")
+            return
         step("Installing the Gouly app in the emulator")
+        if installed is not None and (version_code is None or installed > version_code):
+            info("Removing the currently installed version first (you'll need to log in again)")
+            self.adb_cmd("uninstall", package, check=False)
         self.adb_cmd("install-multiple", "-r", "-g", *[str(p) for p in apks], timeout=600)
 
 

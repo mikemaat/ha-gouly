@@ -9,8 +9,12 @@ import sys
 import types
 from pathlib import Path
 
-COMPONENT_DIR = Path(__file__).resolve().parent.parent / "custom_components" / "gouly"
+ROOT = Path(__file__).resolve().parent.parent
+COMPONENT_DIR = ROOT / "custom_components" / "gouly"
 PACKAGE = "gouly_core"
+
+# gouly-keys lives in tools/ (packaged as gouly_keys).
+sys.path.insert(0, str(ROOT / "tools"))
 
 
 def _load_pure_modules() -> None:

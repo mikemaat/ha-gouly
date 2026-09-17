@@ -2,6 +2,7 @@
 
     gouly-keys                 set everything up, log in, print keys, find controllers
     gouly-keys --apk FILE      use an app file you downloaded yourself
+    gouly-keys --app-version known-good   use the app version gouly-keys was tested with
     gouly-keys find            look for controllers on the network again (uses gouly_devices.json)
     gouly-keys clean           stop the emulator and delete everything gouly-keys downloaded
 """
@@ -42,6 +43,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gouly-keys", description="Get local keys for Gouly lighting controllers.")
     parser.add_argument("command", nargs="?", default="extract", choices=["extract", "find", "clean"])
     parser.add_argument("--apk", type=Path, help="use this .apk/.xapk/.apks instead of downloading the app")
+    parser.add_argument(
+        "--app-version",
+        default="latest",
+        metavar="VERSION",
+        help="app version to download: 'latest' (default, falls back to known-good if it doesn't work), "
+        "'known-good', or a version code",
+    )
     parser.add_argument("--output", "-o", type=Path, default=DEFAULT_OUTPUT, help="where to save the results")
     parser.add_argument("--home", type=Path, default=DEFAULT_HOME, help="where to keep the emulator and downloads")
     parser.add_argument("--no-scan", action="store_true", help="don't look for the controllers on the network")
@@ -83,14 +91,16 @@ def extract(args: argparse.Namespace) -> int:
     env.install()
     env.check_acceleration()
 
-    source = args.apk if args.apk else apk.download_app(env.cache)
-    apks = apk.prepare_apks(source, env.home)
+    if args.apk:
+        releases: list[apk.AppRelease | None] = [None]
+    else:
+        requested = apk.resolve_release(apk.parse_version_arg(args.app_version))
+        releases = [requested]
+        if args.app_version.strip().lower() == "latest" and not requested.is_known_good:
+            releases.append(None)  # resolved lazily: the known-good fallback
 
     env.start_emulator()
-    env.install_apks(apks)
     capture.start_frida_server(env)
-
-    step("Log in to the Gouly app")
 
     def on_ready() -> None:
         print(
@@ -105,7 +115,32 @@ def extract(args: argparse.Namespace) -> int:
         success(f"Found {device.get('name') or 'a controller'} ({device['devId']})")
         info("Waiting a little longer in case you have more controllers...")
 
-    devices = capture.capture_devices(on_ready, on_device)
+    devices: dict[str, dict] = {}
+    for attempt, release in enumerate(releases):
+        if attempt and release is None:
+            release = apk.resolve_release(apk.KNOWN_GOOD_VERSION_CODE)
+        if release is None:
+            apks, version_code = apk.prepare_apks(args.apk, env.home), None
+        else:
+            apks, version_code = apk.prepare_apks(apk.download_release(release, env.cache), env.home), release.version_code
+        env.install_apks(apk.PACKAGE, apks, version_code)
+
+        step("Log in to the Gouly app")
+        try:
+            devices = capture.capture_devices(on_ready, on_device)
+            break
+        except capture.CaptureFailed as err:
+            if attempt + 1 >= len(releases):
+                raise capture.CaptureFailed(
+                    f"{err}\n\nPlease open an issue at https://github.com/mikemaat/ha-gouly/issues "
+                    "and include this message."
+                ) from err
+            warn(str(err))
+            warn(
+                f"Trying the Gouly app version gouly-keys was tested with "
+                f"({apk.KNOWN_GOOD_VERSION_NAME}) instead."
+            )
+
     if not devices:
         raise SetupError("No controllers were found. Make sure you logged in and your lights show in the app.")
 

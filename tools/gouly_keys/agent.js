@@ -43,15 +43,21 @@ function report(bean) {
 }
 
 Java.perform(function () {
+  const hooked = [];
+  const missing = [];
   DEVICE_CLASSES.forEach(function (name) {
     let cls;
     try {
       cls = Java.use(name);
     } catch (e) {
+      missing.push(name);
       return;
     }
     ['setLocalKey', 'getLocalKey'].forEach(function (method) {
-      if (!cls[method]) return;
+      if (!cls[method]) {
+        missing.push(name + '.' + method);
+        return;
+      }
       cls[method].overloads.forEach(function (overload) {
         overload.implementation = function () {
           const result = overload.apply(this, arguments);
@@ -59,8 +65,12 @@ Java.perform(function () {
           return result;
         };
       });
+      hooked.push(name + '.' + method);
     });
   });
+  // Lets gouly-keys fail fast (and fall back to a known-good app version) if an app update
+  // renamed or removed the classes we rely on.
+  send({ type: 'gouly-hooks', hooked: hooked, missing: missing });
 
   // Also look for device objects already in memory (e.g. loaded from the app's cache).
   setInterval(function () {
