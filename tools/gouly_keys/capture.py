@@ -103,8 +103,18 @@ def capture_devices(
     device.resume(pid)
 
     devices: dict[str, dict] = {}
+    first_seen: dict[str, float] = {}
+    announced: set[str] = set()
     started = time.monotonic()
     last_new = None
+
+    def announce(ready_only: bool) -> None:
+        # The key often arrives a moment before the name; wait briefly so we can show the name.
+        for dev_id, dev in devices.items():
+            if dev_id not in announced and (not ready_only or dev.get("name") or time.monotonic() - first_seen[dev_id] > 5):
+                announced.add(dev_id)
+                on_device(dev)
+
     try:
         while True:
             if detached:
@@ -114,6 +124,7 @@ def capture_devices(
                 break
             if last_new is not None and now - last_new > idle_seconds:
                 break
+            announce(ready_only=True)
             try:
                 msg = messages.get(timeout=1)
             except queue.Empty:
@@ -122,15 +133,13 @@ def capture_devices(
                 on_ready()
             elif msg.get("type") == "gouly-device":
                 found = msg["device"]
-                previous = devices.get(found["devId"], {})
-                merged = {**previous, **{k: v for k, v in found.items() if v}}
-                if merged != previous:
-                    if not previous:
-                        last_new = time.monotonic()
-                        on_device(merged)
-                    devices[found["devId"]] = merged
+                dev_id = found["devId"]
+                if dev_id not in devices:
+                    first_seen[dev_id] = last_new = time.monotonic()
+                devices[dev_id] = {**devices.get(dev_id, {}), **{k: v for k, v in found.items() if v}}
             elif msg.get("type") == "agent-error":
                 info(f"(hook warning: {msg.get('description')})")
+        announce(ready_only=False)
     finally:
         try:
             session.detach()
