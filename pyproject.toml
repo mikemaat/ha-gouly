@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gouly-keys"
+version = "0.1.0"
+description = "Get the local keys for Gouly lighting controllers so Home Assistant can control them locally"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Mike Maat" }]
+requires-python = ">=3.10"
+dependencies = [
+    "frida>=17",
+    "frida-tools>=14",
+    "tinytuya>=1.15.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mikemaat/ha-gouly"
+Issues = "https://github.com/mikemaat/ha-gouly/issues"
+
+[project.scripts]
+gouly-keys = "gouly_keys.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tools/gouly_keys"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"custom_components/gouly/discovery.py" = "gouly_keys/discovery.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"

@@ -1,0 +1,19 @@
+# Device credentials and captures - never commit these
+gouly_devices*.json
+captures/
+*.log
+
+# App packages
+*.apk
+*.xapk
+*.apks
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+*.egg-info/

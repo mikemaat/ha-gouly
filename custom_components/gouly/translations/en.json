@@ -1,0 +1,47 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a Gouly controller",
+        "description": "You need your controller's device ID and local key. The easiest way to get them is the gouly-keys tool, see the README.",
+        "menu_options": {
+          "paste": "Paste gouly_devices.json from the gouly-keys tool",
+          "manual": "Enter the device ID and local key manually"
+        }
+      },
+      "paste": {
+        "title": "Paste gouly_devices.json",
+        "description": "Paste the contents of the gouly_devices.json file created by gouly-keys. Home Assistant will find the controller on your network automatically; this can take up to a minute.",
+        "data": {
+          "devices_json": "gouly_devices.json contents"
+        }
+      },
+      "pick": {
+        "title": "Choose a controller",
+        "description": "The file lists several controllers. Add one now, then run this setup again for the others.",
+        "data": {
+          "device": "Controller"
+        }
+      },
+      "manual": {
+        "title": "Enter controller details",
+        "description": "Leave the IP address empty to scan your network for the controller; this can take up to a minute.",
+        "data": {
+          "name": "Name",
+          "device_id": "Device ID",
+          "local_key": "Local key",
+          "host": "IP address (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "That doesn't look like gouly_devices.json. Paste the whole file.",
+      "invalid_local_key": "The local key should be 16 characters long.",
+      "not_found": "Couldn't find a controller that accepts this device ID and key. Check that the controller is powered on and on the same network as Home Assistant, and that the key is current (re-pairing the controller changes it)."
+    },
+    "abort": {
+      "already_configured": "This controller is already set up.",
+      "not_found": "Couldn't find a controller that accepts this device ID and key. Check that the controller is powered on and on the same network as Home Assistant, and that the key is current (re-pairing the controller changes it)."
+    }
+  }
+}
