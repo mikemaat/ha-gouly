@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import lzma
 import queue
 import time
@@ -55,8 +56,19 @@ def _frida_device(timeout: float = 60) -> frida.core.Device:
     raise SetupError("Couldn't connect to Frida in the emulator.")
 
 
-def _java_bridge_source() -> str:
-    return (Path(frida_tools.__file__).parent / "bridges" / "java.js").read_text(encoding="utf-8")
+def _agent_source() -> str:
+    """The agent, preceded by Frida's Java bridge.
+
+    Frida 17 no longer bundles the Java bridge into the runtime. The frida CLI injects it
+    from frida-tools; we evaluate the same bridge file up front.
+    """
+    bridge = (Path(frida_tools.__file__).parent / "bridges" / "java.js").read_text(encoding="utf-8")
+    wrapped = (
+        "(function () { " + bridge + "\nObject.defineProperty(globalThis, 'Java', { value: bridge });"
+        "\nreturn bridge;\n })();"
+    )
+    agent = resources.files(__package__).joinpath("agent.js").read_text(encoding="utf-8")
+    return f"Script.evaluate('/frida/bridges/java.js', {json.dumps(wrapped)});\n{agent}"
 
 
 def capture_devices(
@@ -74,19 +86,13 @@ def capture_devices(
     messages: queue.Queue[dict] = queue.Queue()
     pid = device.spawn([PACKAGE])
     session = device.attach(pid)
-    script = session.create_script(resources.files(__package__).joinpath("agent.js").read_text(encoding="utf-8"))
+    script = session.create_script(_agent_source())
 
     def on_message(message: dict, _data: bytes | None) -> None:
         if message.get("type") == "error":
             messages.put({"type": "agent-error", "description": message.get("description")})
             return
         payload = message.get("payload")
-        if isinstance(payload, dict) and payload.get("type") == "frida:load-bridge":
-            # Frida 17 no longer bundles the Java bridge; serve it the same way the frida CLI does.
-            script.post(
-                {"type": "frida:bridge-loaded", "filename": "java.js", "source": _java_bridge_source()}
-            )
-            return
         if isinstance(payload, dict):
             messages.put(payload)
 
