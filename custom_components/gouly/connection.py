@@ -63,6 +63,8 @@ class GoulyConnection:
         self.effect_speed = DEFAULT_EFFECT_SPEED
         self.effect: int | None = None
         self.colour: protocol.Colour = (255, 255, 255, 0, 0)
+        # Optional preset library, set during setup (see presets.py).
+        self.presets: object | None = None
 
     # Public API (thread safe) --------------------------------------------------------
 

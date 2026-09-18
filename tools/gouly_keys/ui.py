@@ -30,6 +30,19 @@ def _c(code: str, text: str) -> str:
     return f"\033[{code}m{text}\033[0m" if _COLOUR else text
 
 
+def _supports(text: str) -> bool:
+    """Whether the console encoding can print `text` (Windows consoles are often cp1252)."""
+    try:
+        text.encode(sys.stdout.encoding or "ascii")
+    except (UnicodeEncodeError, LookupError):
+        return False
+    return True
+
+
+_TICK = "✔" if _supports("✔") else "+"
+_CROSS = "✘" if _supports("✘") else "x"
+
+
 def step(message: str) -> None:
     print(f"\n{_c('1;36', '==>')} {_c('1', message)}", flush=True)
 
@@ -39,7 +52,7 @@ def info(message: str) -> None:
 
 
 def success(message: str) -> None:
-    print(f"{_c('1;32', '✔')} {message}", flush=True)
+    print(f"{_c('1;32', _TICK)} {message}", flush=True)
 
 
 def warn(message: str) -> None:
@@ -47,7 +60,7 @@ def warn(message: str) -> None:
 
 
 def error(message: str) -> None:
-    print(f"{_c('1;31', '✘')} {message}", file=sys.stderr, flush=True)
+    print(f"{_c('1;31', _CROSS)} {message}", file=sys.stderr, flush=True)
 
 
 def highlight(text: str) -> str:

@@ -3,6 +3,7 @@
     gouly-keys                 set everything up, log in, print keys, find controllers
     gouly-keys --apk FILE      use an app file you downloaded yourself
     gouly-keys --app-version known-good   use the app version gouly-keys was tested with
+    gouly-keys presets         extract the app's preset library for the Home Assistant integration
     gouly-keys find            look for controllers on the network again (uses gouly_devices.json)
     gouly-keys clean           stop the emulator and delete everything gouly-keys downloaded
 """
@@ -41,7 +42,7 @@ def _discovery():
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gouly-keys", description="Get local keys for Gouly lighting controllers.")
-    parser.add_argument("command", nargs="?", default="extract", choices=["extract", "find", "clean"])
+    parser.add_argument("command", nargs="?", default="extract", choices=["extract", "presets", "find", "clean"])
     parser.add_argument("--apk", type=Path, help="use this .apk/.xapk/.apks instead of downloading the app")
     parser.add_argument(
         "--app-version",
@@ -59,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "clean":
             return clean(args.home)
+        if args.command == "presets":
+            return presets_command(args)
         if args.command == "find":
             return find(args.output)
         return extract(args)
@@ -165,6 +168,25 @@ def extract(args: argparse.Namespace) -> int:
     if ask_yes_no("\nShut down the emulator now?"):
         env.stop_emulator()
     info("To free the disk space used by the emulator, run: gouly-keys clean")
+    return 0
+
+
+def presets_command(args: argparse.Namespace) -> int:
+    """Extract the preset library from the Gouly app (no emulator needed)."""
+    from . import apk, presets
+
+    source = args.apk
+    if source is None:
+        release = apk.resolve_release(apk.parse_version_arg(args.app_version))
+        source = apk.download_release(release, AndroidEnv(args.home).cache)
+    library = presets.extract(source)
+    output = args.output if args.output != DEFAULT_OUTPUT else Path("gouly_presets.json")
+    presets.save(library, output)
+    print(
+        f"\nCopy {highlight(str(output.resolve()))} into your Home Assistant config folder\n"
+        "(next to configuration.yaml), then reload the Gouly integration. Presets appear as\n"
+        '"Preset folder" and "Preset" controls on the device.'
+    )
     return 0
 
 

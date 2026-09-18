@@ -13,10 +13,11 @@ from Home Assistant. No cloud: Home Assistant talks to the controller directly o
 
 - On/off, brightness and RGBW colour
 - 140 effects (Twinkle, Fireworks, Chase Rainbow, Breathing, ...) with an effect speed control
+- The Gouly app's preset library (Christmas, Halloween, sports teams, ...), optional, see below
 - Instant updates, including changes made from the Gouly app (local push)
 - Finds the controller on your network automatically, and follows it if its IP address changes
 
-Planned: the app's holiday preset library, music mode.
+Planned: music mode, schedules.
 
 ## Supported hardware
 
@@ -114,7 +115,26 @@ folder and restart Home Assistant.
    the device ID and local key.)
 3. Home Assistant finds the controller on your network, which can take up to a minute.
 
-Your lights appear as a light entity with brightness and RGBW colour.
+Your lights appear as a light entity with brightness, RGBW colour and 140 effects, plus an
+**Effect speed** control.
+
+## 4. Optional: the preset library
+
+The Gouly app ships a library of ready-made patterns (Christmas, Halloween, sports teams and so
+on). That library is Gouly's content, so it isn't included here. Extract it from the app on your
+own machine instead (this doesn't need the emulator):
+
+```sh
+uvx --from git+https://github.com/mikemaat/ha-gouly gouly-keys presets
+```
+
+Copy the resulting `gouly_presets.json` into your Home Assistant config folder (next to
+`configuration.yaml`) and reload the integration. Two new controls appear on the device:
+**Preset folder** and **Preset**.
+
+Presets are designed for an 800 LED string and are scaled to fit yours. The Gouly app instead maps
+a preset's zones onto the controller's four outputs, which can leave most of the string dark; this
+integration stretches them across the whole string so the pattern looks like its preview.
 
 ## Contributing
 

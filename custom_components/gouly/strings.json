@@ -49,6 +49,14 @@
       "effect_speed": {
         "name": "Effect speed"
       }
+    },
+    "select": {
+      "preset_folder": {
+        "name": "Preset folder"
+      },
+      "preset": {
+        "name": "Preset"
+      }
     }
   }
 }

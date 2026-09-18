@@ -1,0 +1,88 @@
+"""Preset library scaling (no Home Assistant, no network)."""
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+from gouly_core import protocol
+
+spec = importlib.util.spec_from_file_location(
+    "gouly_core.presets", Path(__file__).resolve().parent.parent / "custom_components" / "gouly" / "presets.py"
+)
+presets = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = presets
+spec.loader.exec_module(presets)
+
+LAYOUT = protocol.Layout(1599, (999, 200, 200, 200))
+
+
+def zone(start, end, effect=154, **kwargs):
+    return {
+        "start": start, "end": end, "effect": effect, "speed": 128, "width": 0,
+        "brightness": 255, "direction": 0, "on": True,
+        "colours": [[0, 0, 0, 0, 0]] * 3, "palette": 3024, **kwargs,
+    }
+
+
+LIBRARY = {
+    "version": 1,
+    "palettes": {"3024": [[0, 255, 0, 0, 0, 255], [255, 255, 255, 0, 0, 255]]},
+    "folders": {
+        "Christmas": [{"name": "One zone", "total": 800, "zones": [zone(0, 799)]}],
+        "Halloween": [{"name": "Three zones", "total": 800, "zones": [zone(0, 265), zone(266, 532), zone(533, 799)]}],
+    },
+}
+
+
+@pytest.fixture
+def library():
+    return presets.PresetLibrary(LIBRARY)
+
+
+def test_folders_and_names(library) -> None:
+    assert library.folder_names == ["Christmas", "Halloween"]
+    assert library.names_in("Halloween") == ["Three zones"]
+    assert library.find("Christmas", "One zone") is not None
+    assert library.find("Christmas", "nope") is None
+
+
+def test_single_zone_covers_the_whole_string(library) -> None:
+    segments = library.find("Christmas", "One zone").segments(LAYOUT, library.palettes)
+    assert len(segments) == 1
+    assert (segments[0].start, segments[0].end) == (0, LAYOUT.total)
+
+
+def test_zones_are_scaled_and_contiguous(library) -> None:
+    segments = library.find("Halloween", "Three zones").segments(LAYOUT, library.palettes)
+    # zone ends are exclusive, so each zone starts where the previous one ended
+    assert [(s.start, s.end) for s in segments] == [(0, 532), (532, 1065), (1065, 1599)]
+    assert segments[-1].end == LAYOUT.total  # no dark tail from rounding
+    assert all(s.palette == [(0, 255, 0, 0, 0, 255), (255, 255, 255, 0, 0, 255)] for s in segments)
+
+
+def test_frames_are_valid(library) -> None:
+    frames = library.frames(library.find("Halloween", "Three zones"), LAYOUT)
+    assert len(frames) == 6  # music off, header, 3 segments, save
+    for frame in frames:
+        protocol.verify_frame(frame)
+    assert [len(f) for f in frames] == [11, 14, 113, 113, 113, 11]
+
+
+def test_zones_past_the_end_are_dropped() -> None:
+    library = presets.PresetLibrary(
+        {"version": 1, "palettes": {}, "folders": {"F": [{"name": "P", "total": 800, "zones": [zone(0, 99), zone(900, 999)]}]}}
+    )
+    small = protocol.Layout(100, (100, 0, 0, 0))
+    segments = library.find("F", "P").segments(small, library.palettes)
+    assert [(s.start, s.end) for s in segments] == [(0, 12)]
+
+
+def test_load_missing_file(tmp_path) -> None:
+    assert presets.load(str(tmp_path)) is None
+
+
+def test_load_wrong_version(tmp_path) -> None:
+    (tmp_path / presets.PRESETS_FILE).write_text('{"version": 99, "folders": {}}', encoding="utf-8")
+    assert presets.load(str(tmp_path)) is None
