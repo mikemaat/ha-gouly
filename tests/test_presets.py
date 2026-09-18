@@ -116,3 +116,23 @@ def test_install_writes_the_library(tmp_path) -> None:
     config_dir.mkdir()
     assert presets.install(source, str(config_dir)) == (2, 2)
     assert presets.load(str(config_dir)) is not None
+
+
+def test_effect_names_round_trip(library) -> None:
+    preset = library.find("Halloween", "Three zones")
+    name = library.effect_name(preset)
+    assert name == "Halloween / Three zones"
+    assert library.find_by_effect_name(name) is preset
+
+
+def test_find_by_effect_name_rejects_junk(library) -> None:
+    assert library.find_by_effect_name("Halloween") is None
+    assert library.find_by_effect_name("Nope / Three zones") is None
+    assert library.find_by_effect_name("") is None
+
+
+def test_all_presets(library) -> None:
+    assert sorted(library.effect_name(p) for p in library.all_presets()) == [
+        "Christmas / One zone",
+        "Halloween / Three zones",
+    ]

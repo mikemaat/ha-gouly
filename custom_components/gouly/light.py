@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from homeassistant.components.light import (
@@ -18,7 +19,16 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import GoulyConfigEntry, protocol
-from .const import CONF_DEVICE_ID, DOMAIN, MANUFACTURER
+from .const import (
+    CONF_DEVICE_ID,
+    CONF_FAVOURITES,
+    CONF_PRESET_EFFECTS,
+    DEFAULT_PRESET_EFFECTS,
+    DOMAIN,
+    MANUFACTURER,
+    PRESET_EFFECTS_ALL,
+    PRESET_EFFECTS_NONE,
+)
 from .effects import EFFECT_IDS, EFFECTS
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,9 +52,9 @@ class GoulyLight(LightEntity):
     _attr_color_mode = ColorMode.RGBW
     _attr_supported_color_modes = {ColorMode.RGBW}
     _attr_supported_features = LightEntityFeature.EFFECT
-    _attr_effect_list = sorted(EFFECT_IDS)
 
     def __init__(self, entry: GoulyConfigEntry) -> None:
+        self._entry = entry
         self._connection = entry.runtime_data
         device_id = entry.data[CONF_DEVICE_ID]
         self._attr_unique_id = device_id
@@ -57,6 +67,25 @@ class GoulyLight(LightEntity):
         self._attr_brightness = None
         self._attr_rgbw_color = None
         self._attr_effect = None
+        self._attr_effect_list = self._build_effect_list()
+        # Effect echoes arrive after a preset is applied; don't let them relabel it.
+        self._preset_applied_at = 0.0
+
+    def _build_effect_list(self) -> list[str]:
+        """Presets (favourites, all, or none) first, then the controller's own effects."""
+        library = self._connection.presets
+        mode = self._entry.options.get(CONF_PRESET_EFFECTS, DEFAULT_PRESET_EFFECTS)
+        presets: list[str] = []
+        if library is not None and mode != PRESET_EFFECTS_NONE:
+            if mode == PRESET_EFFECTS_ALL:
+                presets = [library.effect_name(p) for p in library.all_presets()]
+            else:
+                presets = [
+                    library.effect_name(preset)
+                    for folder, name in self._entry.options.get(CONF_FAVOURITES, [])
+                    if (preset := library.find(folder, name)) is not None
+                ]
+        return presets + sorted(EFFECT_IDS)
 
     @property
     def available(self) -> bool:
@@ -81,7 +110,7 @@ class GoulyLight(LightEntity):
             if update.rgbw is not None:
                 self._attr_rgbw_color = update.rgbw
                 self._attr_effect = EFFECTS.get(0)
-            if update.effect is not None:
+            if update.effect is not None and time.monotonic() - self._preset_applied_at > 5:
                 self._attr_effect = EFFECTS.get(update.effect)
         self.async_write_ha_state()
 
@@ -96,7 +125,17 @@ class GoulyLight(LightEntity):
             self._attr_rgbw_color = tuple(rgbw)
         effect = kwargs.get(ATTR_EFFECT)
 
-        if effect is not None and effect in EFFECT_IDS:
+        library = self._connection.presets
+        preset = library.find_by_effect_name(effect) if (library and effect) else None
+        if preset is not None:
+            layout = self._connection.layout
+            if layout is None:
+                _LOGGER.warning("Gouly controller hasn't reported its LED layout yet")
+            else:
+                frames += library.frames(preset, layout)
+                self._attr_effect = effect
+                self._preset_applied_at = time.monotonic()
+        elif effect is not None and effect in EFFECT_IDS:
             colour = (*(self._attr_rgbw_color or (255, 255, 255, 0)), 0)
             if frames:
                 self._connection.send(frames)

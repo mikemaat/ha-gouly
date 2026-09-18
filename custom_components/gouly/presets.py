@@ -80,6 +80,17 @@ class PresetLibrary:
     def names_in(self, folder: str) -> list[str]:
         return [p.name for p in self.folders.get(folder, [])]
 
+    def effect_name(self, preset: Preset) -> str:
+        """How a preset is named in the light's effect list."""
+        return f"{preset.folder} / {preset.name}"
+
+    def all_presets(self) -> list[Preset]:
+        return [preset for presets in self.folders.values() for preset in presets]
+
+    def find_by_effect_name(self, effect: str) -> Preset | None:
+        folder, _, name = effect.partition(" / ")
+        return self.find(folder, name) if name else None
+
     def find(self, folder: str, name: str) -> Preset | None:
         return next((p for p in self.folders.get(folder, []) if p.name == name), None)
 

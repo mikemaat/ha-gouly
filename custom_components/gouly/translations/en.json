@@ -65,11 +65,31 @@
       "preset": {
         "name": "Preset"
       }
+    },
+    "button": {
+      "add_favourite": {
+        "name": "Add preset to favourites"
+      }
     }
   },
   "options": {
     "step": {
       "init": {
+        "title": "Gouly",
+        "menu_options": {
+          "favourites": "Favourite presets (shown in the light's effect list)",
+          "library": "Preset library file"
+        }
+      },
+      "favourites": {
+        "title": "Favourite presets",
+        "description": "Favourites appear in the light's Effect list, next to the built-in effects, so you can pick them from the light's dialog. Add one by choosing it with the Preset control, then pressing 'Add preset to favourites'. Unticking a favourite here removes it.",
+        "data": {
+          "preset_effects": "Presets in the effect list",
+          "favourites": "Favourites"
+        }
+      },
+      "library": {
         "title": "Preset library",
         "description": "Upload {file}, created by `gouly-keys presets`, to add or replace the Gouly app's ready-made patterns. Leave empty to keep what's installed.",
         "data": {

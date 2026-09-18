@@ -113,5 +113,6 @@ class GoulyPresetSelect(_GoulyBaseSelect):
             _LOGGER.warning("Gouly controller hasn't reported its LED layout yet")
             return
         self._connection.send(self._library.frames(preset, layout))
+        self._connection.selected_preset = (folder, option)
         self._attr_current_option = option
         self.async_write_ha_state()

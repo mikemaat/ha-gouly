@@ -65,6 +65,8 @@ class GoulyConnection:
         self.colour: protocol.Colour = (255, 255, 255, 0, 0)
         # Optional preset library, set during setup (see presets.py).
         self.presets: object | None = None
+        # The preset currently chosen in the select entities, as (folder, name).
+        self.selected_preset: tuple[str, str] | None = None
 
     # Public API (thread safe) --------------------------------------------------------
 

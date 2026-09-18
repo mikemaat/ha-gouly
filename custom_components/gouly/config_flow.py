@@ -17,6 +17,7 @@ from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -27,10 +28,16 @@ from .const import (
     CONF_DEVICE,
     CONF_DEVICE_ID,
     CONF_DEVICES_JSON,
+    CONF_FAVOURITES,
     CONF_LOCAL_KEY,
+    CONF_PRESET_EFFECTS,
     CONF_PRESETS_FILE,
     CONF_PROTOCOL_VERSION,
+    DEFAULT_PRESET_EFFECTS,
     DOMAIN,
+    PRESET_EFFECTS_ALL,
+    PRESET_EFFECTS_FAVOURITES,
+    PRESET_EFFECTS_NONE,
 )
 from .discovery import discover, probe
 from .presets import PRESETS_FILE, install as install_presets
@@ -192,9 +199,46 @@ class GoulyConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class GoulyOptionsFlow(OptionsFlow):
-    """Add or replace the preset library after setup."""
+    """Manage favourites, the effect list, and the preset library."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="init", menu_options=["favourites", "library"])
+
+    async def async_step_favourites(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Choose which presets appear in the light's effect list."""
+        favourites = [tuple(f) for f in self.config_entry.options.get(CONF_FAVOURITES, [])]
+        labels = {f"{folder} / {name}": [folder, name] for folder, name in favourites}
+
+        if user_input is not None:
+            kept = [labels[label] for label in user_input.get(CONF_FAVOURITES, []) if label in labels]
+            return self._save(
+                {
+                    CONF_FAVOURITES: kept,
+                    CONF_PRESET_EFFECTS: user_input.get(CONF_PRESET_EFFECTS, DEFAULT_PRESET_EFFECTS),
+                }
+            )
+
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_PRESET_EFFECTS, default=self.config_entry.options.get(CONF_PRESET_EFFECTS, DEFAULT_PRESET_EFFECTS)): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(value=PRESET_EFFECTS_FAVOURITES, label="Favourites only"),
+                            SelectOptionDict(value=PRESET_EFFECTS_ALL, label="Every preset"),
+                            SelectOptionDict(value=PRESET_EFFECTS_NONE, label="No presets"),
+                        ],
+                        mode=SelectSelectorMode.LIST,
+                    )
+                ),
+                vol.Optional(CONF_FAVOURITES, default=list(labels)): SelectSelector(
+                    SelectSelectorConfig(options=list(labels), multiple=True)
+                ),
+            }
+        )
+        return self.async_show_form(step_id="favourites", data_schema=schema)
+
+    async def async_step_library(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Upload or replace the preset library."""
         errors: dict[str, str] = {}
         if user_input is not None:
             file_id = user_input.get(CONF_PRESETS_FILE)
@@ -204,17 +248,18 @@ class GoulyOptionsFlow(OptionsFlow):
                 except ValueError:
                     errors["base"] = "invalid_presets"
             if not errors:
-                self.hass.async_create_task(
-                    self.hass.config_entries.async_reload(self.config_entry.entry_id)
-                )
-                return self.async_create_entry(data={})
+                return self._save({})
 
         return self.async_show_form(
-            step_id="init",
+            step_id="library",
             data_schema=PRESETS_SCHEMA,
             errors=errors,
             description_placeholders={"file": PRESETS_FILE},
         )
+
+    def _save(self, changes: dict[str, Any]) -> ConfigFlowResult:
+        """Store options; the update listener reloads the entry."""
+        return self.async_create_entry(data={**self.config_entry.options, **changes})
 
 
 async def _async_install_presets(hass, file_id: str) -> tuple[int, int]:

@@ -130,9 +130,22 @@ uvx --from git+https://github.com/mikemaat/ha-gouly gouly-keys presets
 ```
 
 Then either upload `gouly_presets.json` on the last step when adding the integration, or add it
-later from **Settings > Devices & services > Gouly > Configure**. (Copying the file into your
-Home Assistant config folder by hand works too.) Two new controls appear on the device:
-**Preset folder** and **Preset**.
+later from **Settings > Devices & services > Gouly > Configure > Preset library file**. (Copying
+the file into your Home Assistant config folder by hand works too.) Three new controls appear on
+the device: **Preset folder**, **Preset** and **Add preset to favourites**.
+
+### Favourites
+
+Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones you actually use:
+
+1. Pick a **Preset folder**, then a **Preset** (the lights change as you pick).
+2. Press **Add preset to favourites**.
+
+Favourites then appear in the light's own **Effect** list, next to the 140 effects, so you can
+choose them from the light dialog along with colour and brightness.
+
+**Configure > Favourite presets** removes favourites, and can put *every* preset in the effect
+list instead (handy if you prefer one long list) or none at all.
 
 Presets are designed for an 800 LED string and are scaled to fit yours. The Gouly app instead maps
 a preset's zones onto the controller's four outputs, which can leave most of the string dark; this
