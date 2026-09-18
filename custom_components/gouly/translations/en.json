@@ -43,5 +43,12 @@
       "already_configured": "This controller is already set up.",
       "not_found": "Couldn't find a controller that accepts this device ID and key. Check that the controller is powered on and on the same network as Home Assistant, and that the key is current (re-pairing the controller changes it)."
     }
+  },
+  "entity": {
+    "number": {
+      "effect_speed": {
+        "name": "Effect speed"
+      }
+    }
   }
 }

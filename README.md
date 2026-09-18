@@ -12,10 +12,11 @@ from Home Assistant. No cloud: Home Assistant talks to the controller directly o
 ## Features
 
 - On/off, brightness and RGBW colour
+- 140 effects (Twinkle, Fireworks, Chase Rainbow, Breathing, ...) with an effect speed control
 - Instant updates, including changes made from the Gouly app (local push)
 - Finds the controller on your network automatically, and follows it if its IP address changes
 
-Planned: effects (Chase, Breathing, Fireworks, ...), holiday presets, music mode.
+Planned: the app's holiday preset library, music mode.
 
 ## Supported hardware
 

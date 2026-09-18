@@ -16,7 +16,11 @@ Frame layout (see docs/PROTOCOL.md):
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+Colour = tuple[int, int, int, int, int]  # red, green, blue, warm white, cold white
+PaletteColour = tuple[int, int, int, int, int, int]  # colour plus its own brightness
+BLACK: Colour = (0, 0, 0, 0, 0)
 
 DP_SWITCH = "20"
 DP_TRANSPARENT = "101"
@@ -31,20 +35,24 @@ CMD_POWER = 0xF1
 CMD_BRIGHTNESS = 0xF2
 CMD_PROGRAM = 0xF3
 CMD_SOLID_COLOUR = 0xF6
+CMD_MUSIC_MODE = 0xC7
 
-SUB_PROGRAM_PARAMS = 0xA1
-SUB_PROGRAM_COLOURS = 0xA2
+SUB_SCENE_HEADER = 0xA1
+SUB_SEGMENT = 0xA2
+
+# A segment frame carries a 16 entry palette of 5 bytes each.
+PALETTE_SIZE = 16
 
 # Frame lengths (including header and CRC) as sent by the Gouly app.
 LEN_QUERY = 9
 LEN_SHORT = 11
-LEN_PROGRAM_PARAMS = 14
+LEN_SCENE_HEADER = 14
 LEN_SOLID_COLOUR = 19
-LEN_PROGRAM_COLOURS = 113
+LEN_SEGMENT = 113
 
 # Program parameters and colour-list header the app sends for a static solid colour.
 # The individual fields are not fully decoded yet.
-_STATIC_PROGRAM_PARAMS = bytes.fromhex("A1019000640064006400" "64")
+_STATIC_SCENE_HEADER = bytes.fromhex("A1019000640064006400" "64")
 _STATIC_COLOUR_LIST_HEADER = bytes.fromhex("A20000010000063e000000ff00")
 
 
@@ -97,11 +105,107 @@ def solid_colour(red: int, green: int, blue: int, white: int = 0) -> list[bytes]
     rgbw = bytes(max(0, min(255, int(c))) for c in (red, green, blue, white))
     return [
         build_frame(CMD_STOP_MUSIC),
-        build_frame(CMD_PROGRAM, _STATIC_PROGRAM_PARAMS, LEN_PROGRAM_PARAMS),
-        build_frame(CMD_PROGRAM, _STATIC_COLOUR_LIST_HEADER + rgbw, LEN_PROGRAM_COLOURS),
+        build_frame(CMD_PROGRAM, _STATIC_SCENE_HEADER, LEN_SCENE_HEADER),
+        build_frame(CMD_PROGRAM, _STATIC_COLOUR_LIST_HEADER + rgbw, LEN_SEGMENT),
         build_frame(CMD_SOLID_COLOUR, rgbw, LEN_SOLID_COLOUR),
         build_frame(CMD_APPLY),
     ]
+
+
+@dataclass(frozen=True, slots=True)
+class Layout:
+    """How many LEDs the controller drives, in total and per output."""
+
+    total: int
+    channels: tuple[int, int, int, int]
+
+
+@dataclass(slots=True)
+class Segment:
+    """One zone of the string: a range of LEDs running one effect."""
+
+    start: int
+    end: int
+    effect: int
+    speed: int = 128
+    width: int = 0
+    brightness: int = 255
+    direction: int = 0
+    colours: tuple[Colour, Colour, Colour] = (BLACK, BLACK, BLACK)
+    panel_id: int = -1
+    palette: list[PaletteColour] = field(default_factory=list)
+    segment_id: int = 0
+    is_on: bool = True
+
+
+def scene_header(layout: Layout) -> bytes:
+    """Start a scene: total LED count followed by the four zone lengths."""
+    return build_frame(
+        CMD_PROGRAM,
+        bytes([SUB_SCENE_HEADER])
+        + layout.total.to_bytes(2, "big")
+        + b"".join(c.to_bytes(2, "big") for c in layout.channels),
+        LEN_SCENE_HEADER,
+    )
+
+
+def segment(seg: Segment) -> bytes:
+    """Build a segment (zone) frame."""
+    payload = bytearray([SUB_SEGMENT, 0, seg.segment_id, 1 if seg.is_on else 0])
+    payload += max(seg.start - 1, 0).to_bytes(2, "big")
+    payload += (max(seg.end - 1, 0)).to_bytes(2, "big")
+    payload += bytes(
+        [
+            seg.effect,
+            max(0, min(255, seg.speed)),
+            seg.width,
+            max(0, min(255, seg.brightness)),
+            1 if seg.direction else 0,
+        ]
+    )
+    for colour in seg.colours:
+        payload += bytes(colour)
+    payload += bytes([seg.panel_id if 0 <= seg.panel_id <= 255 else (255 if seg.panel_id != -1 else 0)])
+    if seg.palette:
+        for index in range(PALETTE_SIZE):
+            red, green, blue, warm, white, bright = seg.palette[index % len(seg.palette)]
+            payload += bytes([c * bright // 255 for c in (red, green, blue, warm, white)])
+    else:
+        payload += bytes(PALETTE_SIZE * 5)
+    payload += bytes([len(seg.palette)])
+    return build_frame(CMD_PROGRAM, bytes(payload), LEN_SEGMENT)
+
+
+def music_mode(on: bool, mode: int = 0) -> bytes:
+    """Turn music mode on or off (the app sends 'off' before setting a colour or effect)."""
+    return build_frame(CMD_MUSIC_MODE, bytes([1 if on else 0, mode]))
+
+
+def save() -> bytes:
+    """Store the current scene in the controller (sent after a scene is built)."""
+    return build_frame(CMD_APPLY, bytes(1))
+
+
+def effect(layout: Layout, effect_id: int, colour: Colour, speed: int = 128, brightness: int = 255) -> list[bytes]:
+    """Run one effect across the whole string, coloured by `colour`."""
+    seg = Segment(
+        0,
+        layout.total,
+        effect_id,
+        speed=speed,
+        brightness=brightness,
+        colours=(colour, BLACK, BLACK),
+        palette=[(*colour, 255)],
+    )
+    return [music_mode(False), scene_header(layout), segment(seg), save()]
+
+
+def scene(layout: Layout, segments: list[Segment]) -> list[bytes]:
+    """Build a multi zone scene (used for presets)."""
+    frames = [music_mode(False), scene_header(layout)]
+    frames += [segment(s) for s in segments if s.start < layout.total and s.start < s.end]
+    frames.append(save())
+    return frames
 
 
 def query_state() -> list[bytes]:
@@ -126,9 +230,14 @@ class StateUpdate:
     is_on: bool | None = None
     brightness: int | None = None
     rgbw: tuple[int, int, int, int] | None = None
+    effect: int | None = None
+    layout: Layout | None = None
 
     def __bool__(self) -> bool:
-        return any(v is not None for v in (self.is_on, self.brightness, self.rgbw))
+        return any(
+            v is not None
+            for v in (self.is_on, self.brightness, self.rgbw, self.effect, self.layout)
+        )
 
 
 def parse_frame(frame: bytes) -> StateUpdate:
@@ -147,10 +256,18 @@ def parse_frame(frame: bytes) -> StateUpdate:
             update.brightness = data[0]
         elif command == CMD_SOLID_COLOUR and len(data) >= 4:
             update.rgbw = (data[0], data[1], data[2], data[3])
+        elif command == CMD_PROGRAM and len(data) >= 11 and data[0] == SUB_SEGMENT:
+            # Segment echo: ... start(2) end(2) effect speed ...
+            update.effect = data[8]
     elif header == HEADER_REPORT:
         if command == CMD_QUERY_STATE and len(data) >= 2:
             update.is_on = data[0] == 1
             update.brightness = data[1]
+            if len(data) >= 12:
+                update.layout = Layout(
+                    int.from_bytes(data[2:4], "big"),
+                    tuple(int.from_bytes(data[i : i + 2], "big") for i in (4, 6, 8, 10)),
+                )
     return update
 
 
@@ -166,7 +283,7 @@ def parse_dps(dps: dict[str, object]) -> StateUpdate:
             frame_update = parse_frame(decode_dp(raw))
         except (FrameError, ValueError):
             return update
-        for field in ("is_on", "brightness", "rgbw"):
+        for field in ("is_on", "brightness", "rgbw", "effect", "layout"):
             value = getattr(frame_update, field)
             if value is not None:
                 setattr(update, field, value)

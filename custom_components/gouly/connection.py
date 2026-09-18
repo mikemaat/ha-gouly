@@ -20,6 +20,7 @@ from collections.abc import Callable
 import tinytuya
 
 from . import protocol
+from .const import DEFAULT_EFFECT_SPEED
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +58,11 @@ class GoulyConnection:
         self._wake_recv, self._wake_send = socket.socketpair()
         self._wake_recv.setblocking(False)
         self.available = False
+        self.layout: protocol.Layout | None = None
+        # Current scene, tracked from the frames the controller echoes.
+        self.effect_speed = DEFAULT_EFFECT_SPEED
+        self.effect: int | None = None
+        self.colour: protocol.Colour = (255, 255, 255, 0, 0)
 
     # Public API (thread safe) --------------------------------------------------------
 
@@ -85,6 +91,17 @@ class GoulyConnection:
         """Queue frames to send, in order."""
         self._outbox.put(frames)
         self._wake()
+
+    def apply_effect(self, effect: int | None = None, colour: protocol.Colour | None = None) -> bool:
+        """Run an effect across the whole string. False if the layout isn't known yet."""
+        if effect is not None:
+            self.effect = effect
+        if colour is not None:
+            self.colour = colour
+        if self.layout is None or self.effect is None:
+            return False
+        self.send(protocol.effect(self.layout, self.effect, self.colour, speed=self.effect_speed))
+        return True
 
     # Worker thread -------------------------------------------------------------------
 
@@ -201,5 +218,11 @@ class GoulyConnection:
         dps = payload.get("dps")
         if isinstance(dps, dict):
             update = protocol.parse_dps(dps)
+            if update.layout is not None:
+                self.layout = update.layout
+            if update.effect is not None:
+                self.effect = update.effect
+            if update.rgbw is not None:
+                self.colour = (*update.rgbw, 0)
             if update:
                 self._notify(update)

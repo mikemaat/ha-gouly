@@ -13,7 +13,7 @@ from .connection import GoulyConnection
 from .const import CONF_DEVICE_ID, CONF_LOCAL_KEY, CONF_PROTOCOL_VERSION, DEFAULT_PROTOCOL_VERSION
 from .discovery import discover, networks_for_addresses
 
-PLATFORMS: list[Platform] = [Platform.LIGHT]
+PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.NUMBER]
 
 type GoulyConfigEntry = ConfigEntry[GoulyConnection]
 
