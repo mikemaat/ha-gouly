@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant, callback
@@ -45,6 +46,18 @@ class _GoulyBaseSelect(SelectEntity):
             manufacturer=MANUFACTURER,
         )
 
+    async def async_added_to_hass(self) -> None:
+        # The connection usually comes up after the entity is added; follow its updates so
+        # availability doesn't stay stuck at its first value.
+        def listener(_update) -> None:
+            self.hass.loop.call_soon_threadsafe(self._handle_update)
+
+        self.async_on_remove(self._connection.add_listener(listener))
+
+    @callback
+    def _handle_update(self) -> None:
+        self.async_write_ha_state()
+
     @property
     def available(self) -> bool:
         return self._connection.available
@@ -58,9 +71,9 @@ class GoulyFolderSelect(_GoulyBaseSelect):
         self._library = library
         self._attr_options = library.folder_names
         self._attr_current_option = self._attr_options[0] if self._attr_options else None
-        self._listeners: list[callback] = []
+        self._listeners: list[Callable[[str], None]] = []
 
-    def add_listener(self, listener) -> None:
+    def add_listener(self, listener: Callable[[str], None]) -> None:
         self._listeners.append(listener)
 
     async def async_select_option(self, option: str) -> None:

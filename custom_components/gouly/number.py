@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -42,6 +42,18 @@ class GoulyEffectSpeed(NumberEntity):
             name=entry.title,
             manufacturer=MANUFACTURER,
         )
+
+    async def async_added_to_hass(self) -> None:
+        # The connection usually comes up after the entity is added; follow its updates so
+        # availability and the current value don't stay stuck at their first value.
+        def listener(_update) -> None:
+            self.hass.loop.call_soon_threadsafe(self._handle_update)
+
+        self.async_on_remove(self._connection.add_listener(listener))
+
+    @callback
+    def _handle_update(self) -> None:
+        self.async_write_ha_state()
 
     @property
     def available(self) -> bool:
