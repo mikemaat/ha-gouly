@@ -32,12 +32,20 @@
           "local_key": "Local key",
           "host": "IP address (optional)"
         }
+      },
+      "presets": {
+        "title": "Preset library (optional)",
+        "description": "The Gouly app's ready-made patterns (Christmas, Halloween, sports teams, ...) can be added as Preset controls. Run `gouly-keys presets` to create {file} from the Gouly app, then upload it here. Leave this empty to skip; you can add it later from the integration's Configure button.",
+        "data": {
+          "presets_file": "{file}"
+        }
       }
     },
     "error": {
       "invalid_json": "That doesn't look like gouly_devices.json. Paste the whole file.",
       "invalid_local_key": "The local key should be 16 characters long.",
-      "not_found": "Couldn't find a controller that accepts this device ID and key. Check that the controller is powered on and on the same network as Home Assistant, and that the key is current (re-pairing the controller changes it)."
+      "not_found": "Couldn't find a controller that accepts this device ID and key. Check that the controller is powered on and on the same network as Home Assistant, and that the key is current (re-pairing the controller changes it).",
+      "invalid_presets": "That file isn't a preset library made by `gouly-keys presets`."
     },
     "abort": {
       "already_configured": "This controller is already set up.",
@@ -57,6 +65,20 @@
       "preset": {
         "name": "Preset"
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Preset library",
+        "description": "Upload {file}, created by `gouly-keys presets`, to add or replace the Gouly app's ready-made patterns. Leave empty to keep what's installed.",
+        "data": {
+          "presets_file": "{file}"
+        }
+      }
+    },
+    "error": {
+      "invalid_presets": "That file isn't a preset library made by `gouly-keys presets`."
     }
   }
 }

@@ -7,9 +7,13 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.components.file_upload import process_uploaded_file
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    FileSelector,
+    FileSelectorConfig,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -24,10 +28,16 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_DEVICES_JSON,
     CONF_LOCAL_KEY,
+    CONF_PRESETS_FILE,
     CONF_PROTOCOL_VERSION,
     DOMAIN,
 )
 from .discovery import discover, probe
+from .presets import PRESETS_FILE, install as install_presets
+
+PRESETS_SCHEMA = vol.Schema(
+    {vol.Optional(CONF_PRESETS_FILE): FileSelector(FileSelectorConfig(accept=".json,application/json"))}
+)
 
 DEFAULT_NAME = "Gouly Lights"
 
@@ -48,6 +58,13 @@ class GoulyConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._devices: list[dict[str, Any]] = []
+        self._entry: dict[str, Any] | None = None
+        self._title = DEFAULT_NAME
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> GoulyOptionsFlow:
+        return GoulyOptionsFlow()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(step_id="user", menu_options=["paste", "manual"])
@@ -143,15 +160,71 @@ class GoulyConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         host, version = found
-        return self.async_create_entry(
-            title=device.get(CONF_NAME) or DEFAULT_NAME,
-            data={
-                CONF_HOST: host,
-                CONF_DEVICE_ID: device_id,
-                CONF_LOCAL_KEY: local_key,
-                CONF_PROTOCOL_VERSION: version,
-            },
+        self._title = device.get(CONF_NAME) or DEFAULT_NAME
+        self._entry = {
+            CONF_HOST: host,
+            CONF_DEVICE_ID: device_id,
+            CONF_LOCAL_KEY: local_key,
+            CONF_PROTOCOL_VERSION: version,
+        }
+        return await self.async_step_presets()
+
+    async def async_step_presets(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Optionally install the preset library exported by `gouly-keys presets`."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            file_id = user_input.get(CONF_PRESETS_FILE)
+            if file_id:
+                try:
+                    await _async_install_presets(self.hass, file_id)
+                except ValueError:
+                    errors["base"] = "invalid_presets"
+            if not errors:
+                return self.async_create_entry(title=self._title, data=self._entry or {})
+
+        return self.async_show_form(
+            step_id="presets",
+            data_schema=PRESETS_SCHEMA,
+            errors=errors,
+            description_placeholders={"file": PRESETS_FILE},
+            last_step=True,
         )
+
+
+class GoulyOptionsFlow(OptionsFlow):
+    """Add or replace the preset library after setup."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            file_id = user_input.get(CONF_PRESETS_FILE)
+            if file_id:
+                try:
+                    await _async_install_presets(self.hass, file_id)
+                except ValueError:
+                    errors["base"] = "invalid_presets"
+            if not errors:
+                self.hass.async_create_task(
+                    self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                )
+                return self.async_create_entry(data={})
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=PRESETS_SCHEMA,
+            errors=errors,
+            description_placeholders={"file": PRESETS_FILE},
+        )
+
+
+async def _async_install_presets(hass, file_id: str) -> tuple[int, int]:
+    """Copy an uploaded preset library into the config folder."""
+
+    def _install() -> tuple[int, int]:
+        with process_uploaded_file(hass, file_id) as path:
+            return install_presets(path, hass.config.config_dir)
+
+    return await hass.async_add_executor_job(_install)
 
 
 def _parse_devices_json(text: str) -> list[dict[str, Any]]:

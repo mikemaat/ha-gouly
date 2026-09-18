@@ -86,3 +86,33 @@ def test_load_missing_file(tmp_path) -> None:
 def test_load_wrong_version(tmp_path) -> None:
     (tmp_path / presets.PRESETS_FILE).write_text('{"version": 99, "folders": {}}', encoding="utf-8")
     assert presets.load(str(tmp_path)) is None
+
+
+def test_validate_accepts_a_real_library() -> None:
+    assert presets.validate(LIBRARY) == (2, 2)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        "not a dict",
+        {"version": 99, "folders": {"F": []}},
+        {"version": 1, "folders": {}},
+        {"version": 1, "folders": {"F": "nope"}},
+        {"version": 1, "folders": {"F": [{"name": "no zones"}]}},
+    ],
+)
+def test_validate_rejects_bad_files(data) -> None:
+    with pytest.raises(ValueError):
+        presets.validate(data)
+
+
+def test_install_writes_the_library(tmp_path) -> None:
+    import json as _json
+
+    source = tmp_path / "upload.json"
+    source.write_text(_json.dumps(LIBRARY), encoding="utf-8")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    assert presets.install(source, str(config_dir)) == (2, 2)
+    assert presets.load(str(config_dir)) is not None

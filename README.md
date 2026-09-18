@@ -114,6 +114,7 @@ folder and restart Home Assistant.
 2. Choose **Paste gouly_devices.json**, and paste the whole file. (Or choose manual entry and type
    the device ID and local key.)
 3. Home Assistant finds the controller on your network, which can take up to a minute.
+4. Optionally upload `gouly_presets.json` (see below) on the last step, or skip it.
 
 Your lights appear as a light entity with brightness, RGBW colour and 140 effects, plus an
 **Effect speed** control.
@@ -128,8 +129,9 @@ own machine instead (this doesn't need the emulator):
 uvx --from git+https://github.com/mikemaat/ha-gouly gouly-keys presets
 ```
 
-Copy the resulting `gouly_presets.json` into your Home Assistant config folder (next to
-`configuration.yaml`) and reload the integration. Two new controls appear on the device:
+Then either upload `gouly_presets.json` on the last step when adding the integration, or add it
+later from **Settings > Devices & services > Gouly > Configure**. (Copying the file into your
+Home Assistant config folder by hand works too.) Two new controls appear on the device:
 **Preset folder** and **Preset**.
 
 Presets are designed for an 800 LED string and are scaled to fit yours. The Gouly app instead maps

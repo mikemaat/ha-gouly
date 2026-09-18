@@ -87,6 +87,36 @@ class PresetLibrary:
         return protocol.scene(layout, preset.segments(layout, self.palettes))
 
 
+def validate(data: object) -> tuple[int, int]:
+    """Check an uploaded library. Returns (folders, presets) or raises ValueError."""
+    if not isinstance(data, dict):
+        raise ValueError("not a preset library")
+    if data.get("version") != SUPPORTED_VERSION:
+        raise ValueError(f"unsupported format version {data.get('version')!r}")
+    folders = data.get("folders")
+    if not isinstance(folders, dict) or not folders:
+        raise ValueError("no presets in the file")
+    scenes = 0
+    for name, presets in folders.items():
+        if not isinstance(presets, list):
+            raise ValueError(f"folder {name!r} is malformed")
+        for preset in presets:
+            if not isinstance(preset, dict) or not preset.get("zones"):
+                raise ValueError(f"a preset in {name!r} has no zones")
+            scenes += 1
+    return len(folders), scenes
+
+
+def install(source: Path, config_dir: str) -> tuple[int, int]:
+    """Validate an uploaded preset library and put it where the integration loads it."""
+    data = json.loads(source.read_text(encoding="utf-8"))
+    counts = validate(data)
+    target = Path(config_dir) / PRESETS_FILE
+    target.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    _LOGGER.info("Installed preset library at %s", target)
+    return counts
+
+
 def load(config_dir: str) -> PresetLibrary | None:
     """Load the preset library from the Home Assistant config folder, if present."""
     path = Path(config_dir) / PRESETS_FILE
