@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gouly-keys"
-version = "0.2.0"
+version = "0.2.1"
 description = "Get the local keys for Gouly lighting controllers so Home Assistant can control them locally"
 readme = "README.md"
 license = "MIT"
