@@ -83,9 +83,8 @@
       },
       "favourites": {
         "title": "Favourite presets",
-        "description": "Favourites appear in the light's Effect list, next to the built-in effects, so you can pick them from the light's dialog. Add one by choosing it with the Preset control, then pressing 'Add preset to favourites'. Unticking a favourite here removes it.",
+        "description": "Favourites are the presets shown first in the Gouly card. Add them with the star next to a preset; untick one here to remove it.",
         "data": {
-          "preset_effects": "Presets in the effect list",
           "favourites": "Favourites"
         }
       },
@@ -102,6 +101,16 @@
     }
   },
   "services": {
+    "apply_preset": {
+      "name": "Apply preset",
+      "description": "Show one of the Gouly app's presets on the lights.",
+      "fields": {
+        "preset": {
+          "name": "Preset",
+          "description": "The preset, named 'Folder / Preset', e.g. 'Christmas 1 / Christmas-static'."
+        }
+      }
+    },
     "add_favourite": {
       "name": "Add favourite preset",
       "description": "Add a preset to the light's effect list.",

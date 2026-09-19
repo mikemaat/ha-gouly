@@ -232,11 +232,13 @@ class StateUpdate:
     rgbw: tuple[int, int, int, int] | None = None
     effect: int | None = None
     layout: Layout | None = None
+    # Colours a scene is showing: one entry for a single colour scene, more for a mixed one.
+    palette: list[Colour] | None = None
 
     def __bool__(self) -> bool:
         return any(
             v is not None
-            for v in (self.is_on, self.brightness, self.rgbw, self.effect, self.layout)
+            for v in (self.is_on, self.brightness, self.rgbw, self.effect, self.layout, self.palette)
         )
 
 
@@ -259,6 +261,7 @@ def parse_frame(frame: bytes) -> StateUpdate:
         elif command == CMD_PROGRAM and len(data) >= 11 and data[0] == SUB_SEGMENT:
             # Segment echo: ... start(2) end(2) effect speed ...
             update.effect = data[8]
+            update.palette = _segment_palette(data)
     elif header == HEADER_REPORT:
         if command == CMD_QUERY_STATE and len(data) >= 2:
             update.is_on = data[0] == 1
@@ -269,6 +272,28 @@ def parse_frame(frame: bytes) -> StateUpdate:
                     tuple(int.from_bytes(data[i : i + 2], "big") for i in (4, 6, 8, 10)),
                 )
     return update
+
+
+def _segment_palette(data: bytes) -> list[Colour] | None:
+    """The distinct colours in a segment frame's palette, in the order they appear."""
+    # data: A2 tog seg on start(2) end(2) effect speed width bright dir c1(5) c2(5) c3(5)
+    #       panel palette(16x5) count
+    start = 1 + 3 + 4 + 5 + 15 + 1
+    end = start + PALETTE_SIZE * 5
+    if len(data) < end + 1:
+        return None
+    count = min(data[end], PALETTE_SIZE)
+    colours: list[Colour] = []
+    for index in range(count):
+        colour = tuple(data[start + index * 5 : start + index * 5 + 5])
+        if any(colour) and colour not in colours:
+            colours.append(colour)  # type: ignore[arg-type]
+    if not colours:
+        # A single colour scene carries it as colour 1 rather than in the palette.
+        first = tuple(data[13:18])
+        if any(first):
+            colours.append(first)  # type: ignore[arg-type]
+    return colours or None
 
 
 def parse_dps(dps: dict[str, object]) -> StateUpdate:
@@ -283,7 +308,7 @@ def parse_dps(dps: dict[str, object]) -> StateUpdate:
             frame_update = parse_frame(decode_dp(raw))
         except (FrameError, ValueError):
             return update
-        for field in ("is_on", "brightness", "rgbw", "effect", "layout"):
+        for field in ("is_on", "brightness", "rgbw", "effect", "layout", "palette"):
             value = getattr(frame_update, field)
             if value is not None:
                 setattr(update, field, value)

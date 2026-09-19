@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any
 
 from homeassistant.components.light import (
@@ -19,17 +18,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import GoulyConfigEntry, protocol
-from .const import (
-    ATTR_FAVOURITE_PRESETS,
-    CONF_DEVICE_ID,
-    CONF_FAVOURITES,
-    CONF_PRESET_EFFECTS,
-    DEFAULT_PRESET_EFFECTS,
-    DOMAIN,
-    MANUFACTURER,
-    PRESET_EFFECTS_ALL,
-    PRESET_EFFECTS_NONE,
-)
+from .const import ATTR_FAVOURITE_PRESETS, CONF_DEVICE_ID, CONF_FAVOURITES, DOMAIN, MANUFACTURER
 from .effects import EFFECT_IDS, EFFECTS
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,9 +57,7 @@ class GoulyLight(LightEntity):
         self._attr_brightness = None
         self._attr_rgbw_color = None
         self._attr_effect = None
-        self._attr_effect_list = self._build_effect_list()
-        # Effect echoes arrive after a preset is applied; don't let them relabel it.
-        self._preset_applied_at = 0.0
+        self._attr_effect_list = sorted(EFFECT_IDS)
 
     @property
     def extra_state_attributes(self) -> dict[str, list[str]]:
@@ -85,22 +72,6 @@ class GoulyLight(LightEntity):
                 if (preset := library.find(folder, name)) is not None
             ]
         }
-
-    def _build_effect_list(self) -> list[str]:
-        """Presets (favourites, all, or none) first, then the controller's own effects."""
-        library = self._connection.presets
-        mode = self._entry.options.get(CONF_PRESET_EFFECTS, DEFAULT_PRESET_EFFECTS)
-        presets: list[str] = []
-        if library is not None and mode != PRESET_EFFECTS_NONE:
-            if mode == PRESET_EFFECTS_ALL:
-                presets = [library.effect_name(p) for p in library.all_presets()]
-            else:
-                presets = [
-                    library.effect_name(preset)
-                    for folder, name in self._entry.options.get(CONF_FAVOURITES, [])
-                    if (preset := library.find(folder, name)) is not None
-                ]
-        return presets + sorted(EFFECT_IDS)
 
     @property
     def available(self) -> bool:
@@ -125,8 +96,13 @@ class GoulyLight(LightEntity):
             if update.rgbw is not None:
                 self._attr_rgbw_color = update.rgbw
                 self._attr_effect = EFFECTS.get(0)
-            if update.effect is not None and time.monotonic() - self._preset_applied_at > 5:
+            if update.effect is not None:
                 self._attr_effect = EFFECTS.get(update.effect)
+            if update.palette is not None:
+                # One colour: report it. Several: no single colour describes the light, so
+                # report none rather than leaving the last solid colour showing.
+                single = update.palette[0][:4] if len(update.palette) == 1 else None
+                self._attr_rgbw_color = single
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
@@ -140,18 +116,7 @@ class GoulyLight(LightEntity):
             self._attr_rgbw_color = tuple(rgbw)
         effect = kwargs.get(ATTR_EFFECT)
 
-        library = self._connection.presets
-        # Presets are applied by name whether or not they are listed as effects.
-        preset = library.find_by_effect_name(effect) if (library and effect) else None
-        if preset is not None:
-            layout = self._connection.layout
-            if layout is None:
-                _LOGGER.warning("Gouly controller hasn't reported its LED layout yet")
-            else:
-                frames += library.frames(preset, layout)
-                self._attr_effect = effect
-                self._preset_applied_at = time.monotonic()
-        elif effect is not None and effect in EFFECT_IDS:
+        if effect in EFFECT_IDS:
             colour = (*(self._attr_rgbw_color or (255, 255, 255, 0)), 0)
             if frames:
                 self._connection.send(frames)
@@ -160,6 +125,10 @@ class GoulyLight(LightEntity):
                 _LOGGER.warning("Gouly controller hasn't reported its LED layout yet")
             else:
                 self._attr_effect = effect
+        elif effect is not None:
+            _LOGGER.warning(
+                "Unknown effect %r. Presets are applied with the gouly.apply_preset service.", effect
+            )
         elif rgbw is not None:
             frames += protocol.solid_colour(*rgbw)
             self._attr_effect = EFFECTS.get(0)

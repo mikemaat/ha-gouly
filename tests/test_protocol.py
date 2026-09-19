@@ -108,3 +108,28 @@ def test_parse_dps() -> None:
     assert update.brightness == 40
     assert update.is_on is None
     assert not protocol.parse_dps({"101": "not base64!"})
+
+
+# A multi zone preset ("Eid-Cyan-Pacman"), whose palette is green/white/white/green.
+SEGMENT_WITH_PALETTE = (
+    "aaf3a2000001000003e69a7800ff00000000000000000000000000000000ff00ff000000ffffff0000ffffff0000"
+    "00ff00000000ff000000ffffff0000ffffff000000ff00000000ff000000ffffff0000ffffff000000ff00000000"
+    "ff000000ffffff0000ffffff000000ff00000004f9"
+)
+
+
+def test_single_colour_scene_reports_that_colour() -> None:
+    # The red solid colour scene keeps its colour in colour 1, not the palette.
+    update = protocol.parse_frame(bytes.fromhex(CAPTURED_RED[2]))
+    assert update.palette == [(255, 0, 0, 0, 0)]
+
+
+def test_multi_colour_scene_reports_each_distinct_colour() -> None:
+    update = protocol.parse_frame(bytes.fromhex(SEGMENT_WITH_PALETTE))
+    assert update.effect == 154
+    assert update.palette == [(0, 255, 0, 0, 0), (255, 255, 255, 0, 0)]
+
+
+def test_palette_survives_a_dp_round_trip() -> None:
+    raw = protocol.encode_dp(bytes.fromhex(SEGMENT_WITH_PALETTE))
+    assert protocol.parse_dps({"101": raw}).palette == [(0, 255, 0, 0, 0), (255, 255, 255, 0, 0)]

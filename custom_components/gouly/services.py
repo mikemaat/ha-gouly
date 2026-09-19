@@ -15,6 +15,7 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import CONF_FAVOURITES, DOMAIN
 
+SERVICE_APPLY_PRESET = "apply_preset"
 SERVICE_ADD_FAVOURITE = "add_favourite"
 SERVICE_REMOVE_FAVOURITE = "remove_favourite"
 SERVICE_SET_FAVOURITES = "set_favourites"
@@ -59,6 +60,22 @@ def _entry_for(hass: HomeAssistant, call: ServiceCall) -> ConfigEntry:
     raise ServiceValidationError("Target a Gouly entity, for example its light.")
 
 
+def _preset_for(hass: HomeAssistant, entry: ConfigEntry, name: str):
+    """Look a preset up in the library, by its 'Folder / Preset' name."""
+    connection = entry.runtime_data
+    library = getattr(connection, "presets", None)
+    if library is None:
+        raise ServiceValidationError(
+            "No preset library is installed. Add gouly_presets.json in the integration's "
+            "Configure screen."
+        )
+    folder, preset_name = _split(name)
+    preset = library.find(folder, preset_name)
+    if preset is None:
+        raise ServiceValidationError(f"No preset called {name!r} in the library.")
+    return library, preset, connection
+
+
 def _save(hass: HomeAssistant, entry: ConfigEntry, favourites: list[list[str]]) -> None:
     """Store favourites; the update listener reloads the entry and rebuilds the effect list."""
     hass.config_entries.async_update_entry(
@@ -68,8 +85,17 @@ def _save(hass: HomeAssistant, entry: ConfigEntry, favourites: list[list[str]]) 
 
 def async_register(hass: HomeAssistant) -> None:
     """Register the favourite services once."""
-    if hass.services.has_service(DOMAIN, SERVICE_ADD_FAVOURITE):
+    if hass.services.has_service(DOMAIN, SERVICE_APPLY_PRESET):
         return
+
+    async def apply_preset(call: ServiceCall) -> None:
+        entry = _entry_for(hass, call)
+        library, preset, connection = _preset_for(hass, entry, call.data[ATTR_PRESET])
+        if connection.layout is None:
+            raise ServiceValidationError(
+                "The controller hasn't reported how many LEDs it drives yet; try again shortly."
+            )
+        connection.send(library.frames(preset, connection.layout))
 
     async def add_favourite(call: ServiceCall) -> None:
         entry = _entry_for(hass, call)
@@ -92,6 +118,7 @@ def async_register(hass: HomeAssistant) -> None:
         entry = _entry_for(hass, call)
         _save(hass, entry, [_split(preset) for preset in call.data[ATTR_PRESETS]])
 
+    hass.services.async_register(DOMAIN, SERVICE_APPLY_PRESET, apply_preset, schema=PRESET_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_ADD_FAVOURITE, add_favourite, schema=PRESET_SCHEMA)
     hass.services.async_register(
         DOMAIN, SERVICE_REMOVE_FAVOURITE, remove_favourite, schema=PRESET_SCHEMA

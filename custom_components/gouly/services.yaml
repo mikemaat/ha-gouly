@@ -1,3 +1,14 @@
+apply_preset:
+  target:
+    entity:
+      integration: gouly
+  fields:
+    preset:
+      required: true
+      example: "Christmas 1 / Christmas-static"
+      selector:
+        text:
+
 add_favourite:
   target:
     entity:

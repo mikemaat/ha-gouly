@@ -17,7 +17,6 @@ from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
-    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -30,14 +29,9 @@ from .const import (
     CONF_DEVICES_JSON,
     CONF_FAVOURITES,
     CONF_LOCAL_KEY,
-    CONF_PRESET_EFFECTS,
     CONF_PRESETS_FILE,
     CONF_PROTOCOL_VERSION,
-    DEFAULT_PRESET_EFFECTS,
     DOMAIN,
-    PRESET_EFFECTS_ALL,
-    PRESET_EFFECTS_FAVOURITES,
-    PRESET_EFFECTS_NONE,
 )
 from .discovery import discover, probe
 from .presets import PRESETS_FILE, install as install_presets
@@ -205,34 +199,19 @@ class GoulyOptionsFlow(OptionsFlow):
         return self.async_show_menu(step_id="init", menu_options=["favourites", "library"])
 
     async def async_step_favourites(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Choose which presets appear in the light's effect list."""
+        """Remove favourites. They are added with the star in the Gouly card."""
         favourites = [tuple(f) for f in self.config_entry.options.get(CONF_FAVOURITES, [])]
         labels = {f"{folder} / {name}": [folder, name] for folder, name in favourites}
 
         if user_input is not None:
             kept = [labels[label] for label in user_input.get(CONF_FAVOURITES, []) if label in labels]
-            return self._save(
-                {
-                    CONF_FAVOURITES: kept,
-                    CONF_PRESET_EFFECTS: user_input.get(CONF_PRESET_EFFECTS, DEFAULT_PRESET_EFFECTS),
-                }
-            )
+            return self._save({CONF_FAVOURITES: kept})
 
         schema = vol.Schema(
             {
-                vol.Optional(CONF_PRESET_EFFECTS, default=self.config_entry.options.get(CONF_PRESET_EFFECTS, DEFAULT_PRESET_EFFECTS)): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[
-                            SelectOptionDict(value=PRESET_EFFECTS_FAVOURITES, label="Favourites only"),
-                            SelectOptionDict(value=PRESET_EFFECTS_ALL, label="Every preset"),
-                            SelectOptionDict(value=PRESET_EFFECTS_NONE, label="No presets"),
-                        ],
-                        mode=SelectSelectorMode.LIST,
-                    )
-                ),
                 vol.Optional(CONF_FAVOURITES, default=list(labels)): SelectSelector(
                     SelectSelectorConfig(options=list(labels), multiple=True)
-                ),
+                )
             }
         )
         return self.async_show_form(step_id="favourites", data_schema=schema)

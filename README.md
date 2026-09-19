@@ -144,11 +144,37 @@ Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones yo
 Favourites then appear in the light's own **Effect** list, next to the 140 effects, so you can
 choose them from the light dialog along with colour and brightness.
 
-**Configure > Favourite presets** removes favourites, and chooses what the light's effect list
-contains: favourites (default), *every* preset, or **none** - keeping the effect list to the 140
-effects. Favourites are always published as the light's `favourite_presets` attribute, so the
-[Gouly Card](https://github.com/mikemaat/ha-gouly-card) still shows them when the effect list has
-none, and `light.turn_on` with `effect: "Folder / Preset"` still applies any preset either way.
+Effects and presets are kept apart: the light's **effect list** holds the controller's 140 effects,
+and presets are applied with a service, so an automation never depends on what the effect list
+contains.
+
+| Service | What it does |
+|---|---|
+| `gouly.apply_preset` | Show `preset: "Folder / Preset"` on the lights |
+| `gouly.add_favourite` | Add it to the favourites |
+| `gouly.remove_favourite` | Remove it again |
+| `gouly.set_favourites` | Replace the favourites with `presets: [...]` |
+
+```yaml
+# Christmas patterns from dusk, every December evening
+triggers:
+  - trigger: sun
+    event: sunset
+conditions:
+  - condition: template
+    value_template: "{{ now().month == 12 }}"
+actions:
+  - action: gouly.apply_preset
+    target: { entity_id: light.christmas_lights_front }
+    data: { preset: "Christmas 1 / Christmas-static" }
+```
+
+Favourites are published as the light's `favourite_presets` attribute, which is what the
+[Gouly Card](https://github.com/mikemaat/ha-gouly-card) shows. **Configure > Favourite presets**
+removes them.
+
+The light reports the colour a preset is showing: a single colour preset reports that colour, and a
+multi colour one reports none, so a tile doesn't sit there showing the last solid colour you picked.
 
 Favourites can also be managed from scripts and automations, which is what the
 [Gouly Card](https://github.com/mikemaat/ha-gouly-card) uses:
