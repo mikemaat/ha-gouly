@@ -147,6 +147,15 @@ choose them from the light dialog along with colour and brightness.
 **Configure > Favourite presets** removes favourites, and can put *every* preset in the effect
 list instead (handy if you prefer one long list) or none at all.
 
+Favourites can also be managed from scripts and automations, which is what the
+[Gouly Card](https://github.com/mikemaat/ha-gouly-card) uses:
+
+| Service | What it does |
+|---|---|
+| `gouly.add_favourite` | Add `preset: "Folder / Preset"` to the effect list |
+| `gouly.remove_favourite` | Remove it again |
+| `gouly.set_favourites` | Replace the list with `presets: [...]`, in that order |
+
 Presets are designed for an 800 LED string and are scaled to fit yours. The Gouly app instead maps
 a preset's zones onto the controller's four outputs, which can leave most of the string dark; this
 integration stretches them across the whole string so the pattern looks like its preview.

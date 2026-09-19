@@ -13,6 +13,7 @@ from .connection import GoulyConnection
 from .const import CONF_DEVICE_ID, CONF_LOCAL_KEY, CONF_PROTOCOL_VERSION, DEFAULT_PROTOCOL_VERSION
 from .discovery import discover, networks_for_addresses
 from .presets import load as load_presets
+from .services import async_register as async_register_services
 
 PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.LIGHT, Platform.NUMBER, Platform.SELECT]
 
@@ -61,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoulyConfigEntry) -> boo
     entry.runtime_data = connection
     connection.start()
 
+    async_register_services(hass)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

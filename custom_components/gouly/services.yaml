@@ -1,0 +1,32 @@
+add_favourite:
+  target:
+    entity:
+      integration: gouly
+  fields:
+    preset:
+      required: true
+      example: "Christmas 1 / Christmas-static"
+      selector:
+        text:
+
+remove_favourite:
+  target:
+    entity:
+      integration: gouly
+  fields:
+    preset:
+      required: true
+      example: "Christmas 1 / Christmas-static"
+      selector:
+        text:
+
+set_favourites:
+  target:
+    entity:
+      integration: gouly
+  fields:
+    presets:
+      required: true
+      example: '["Christmas 1 / Christmas-static", "Halloween 1 / Halloween-4"]'
+      selector:
+        object:

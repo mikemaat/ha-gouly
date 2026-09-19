@@ -100,5 +100,37 @@
     "error": {
       "invalid_presets": "That file isn't a preset library made by `gouly-keys presets`."
     }
+  },
+  "services": {
+    "add_favourite": {
+      "name": "Add favourite preset",
+      "description": "Add a preset to the light's effect list.",
+      "fields": {
+        "preset": {
+          "name": "Preset",
+          "description": "The preset, named 'Folder / Preset' as it appears in the effect list."
+        }
+      }
+    },
+    "remove_favourite": {
+      "name": "Remove favourite preset",
+      "description": "Remove a preset from the light's effect list.",
+      "fields": {
+        "preset": {
+          "name": "Preset",
+          "description": "The preset, named 'Folder / Preset' as it appears in the effect list."
+        }
+      }
+    },
+    "set_favourites": {
+      "name": "Set favourite presets",
+      "description": "Replace the favourites with this list, in this order.",
+      "fields": {
+        "presets": {
+          "name": "Presets",
+          "description": "Presets named 'Folder / Preset', in the order they should appear."
+        }
+      }
+    }
   }
 }
