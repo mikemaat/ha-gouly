@@ -20,6 +20,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import GoulyConfigEntry, protocol
 from .const import (
+    ATTR_FAVOURITE_PRESETS,
     CONF_DEVICE_ID,
     CONF_FAVOURITES,
     CONF_PRESET_EFFECTS,
@@ -70,6 +71,20 @@ class GoulyLight(LightEntity):
         self._attr_effect_list = self._build_effect_list()
         # Effect echoes arrive after a preset is applied; don't let them relabel it.
         self._preset_applied_at = 0.0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, list[str]]:
+        """Favourites, so they can be shown even when they aren't in the effect list."""
+        library = self._connection.presets
+        if library is None:
+            return {}
+        return {
+            ATTR_FAVOURITE_PRESETS: [
+                library.effect_name(preset)
+                for folder, name in self._entry.options.get(CONF_FAVOURITES, [])
+                if (preset := library.find(folder, name)) is not None
+            ]
+        }
 
     def _build_effect_list(self) -> list[str]:
         """Presets (favourites, all, or none) first, then the controller's own effects."""
@@ -126,6 +141,7 @@ class GoulyLight(LightEntity):
         effect = kwargs.get(ATTR_EFFECT)
 
         library = self._connection.presets
+        # Presets are applied by name whether or not they are listed as effects.
         preset = library.find_by_effect_name(effect) if (library and effect) else None
         if preset is not None:
             layout = self._connection.layout

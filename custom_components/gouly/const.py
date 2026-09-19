@@ -10,13 +10,14 @@ CONF_DEVICES_JSON = "devices_json"
 CONF_DEVICE = "device"
 CONF_PRESETS_FILE = "presets_file"
 CONF_FAVOURITES = "favourites"
+ATTR_FAVOURITE_PRESETS = "favourite_presets"
 CONF_PRESET_EFFECTS = "preset_effects"
 
 # How many presets the light's effect list offers.
 PRESET_EFFECTS_FAVOURITES = "favourites"
 PRESET_EFFECTS_ALL = "all"
 PRESET_EFFECTS_NONE = "none"
-DEFAULT_PRESET_EFFECTS = PRESET_EFFECTS_FAVOURITES
+DEFAULT_PRESET_EFFECTS = PRESET_EFFECTS_FAVOURITES  # favourites also work from the card when set to "none"
 
 DEFAULT_PROTOCOL_VERSION = 3.5
 DEFAULT_EFFECT_SPEED = 128

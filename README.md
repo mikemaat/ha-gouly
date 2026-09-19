@@ -144,8 +144,11 @@ Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones yo
 Favourites then appear in the light's own **Effect** list, next to the 140 effects, so you can
 choose them from the light dialog along with colour and brightness.
 
-**Configure > Favourite presets** removes favourites, and can put *every* preset in the effect
-list instead (handy if you prefer one long list) or none at all.
+**Configure > Favourite presets** removes favourites, and chooses what the light's effect list
+contains: favourites (default), *every* preset, or **none** - keeping the effect list to the 140
+effects. Favourites are always published as the light's `favourite_presets` attribute, so the
+[Gouly Card](https://github.com/mikemaat/ha-gouly-card) still shows them when the effect list has
+none, and `light.turn_on` with `effect: "Folder / Preset"` still applies any preset either way.
 
 Favourites can also be managed from scripts and automations, which is what the
 [Gouly Card](https://github.com/mikemaat/ha-gouly-card) uses:
