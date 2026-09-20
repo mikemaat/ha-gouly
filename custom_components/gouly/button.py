@@ -29,7 +29,10 @@ async def async_setup_entry(
 
 
 class GoulyFavouriteButton(ButtonEntity):
-    """Adds the preset currently chosen in the Preset select to the light's effects."""
+    """Adds the preset currently chosen in the Preset select to the favourites.
+
+    The Gouly card has a star on every preset; this is the way to do it without the card.
+    """
 
     _attr_has_entity_name = True
     _attr_translation_key = "add_favourite"
