@@ -123,7 +123,9 @@ def _read_tables(con: sqlite3.Connection, effects: list[dict]) -> dict:
         )
 
     folders: dict[str, list[dict]] = {}
-    for row in con.execute("select * from SceneBean order by folderName, sceneName"):
+    # sceneId breaks ties: Gouly reuses names within a folder, and the integration numbers
+    # the repeats, so the order they come out in has to be the same every extraction.
+    for row in con.execute("select * from SceneBean order by folderName, sceneName, sceneId"):
         zones = zones_by_scene.get(row["sceneId"])
         if not zones:
             continue
