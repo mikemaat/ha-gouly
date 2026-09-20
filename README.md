@@ -16,6 +16,8 @@ from Home Assistant. No cloud: Home Assistant talks to the controller directly o
 - The Gouly app's preset library (Christmas, Halloween, sports teams, ...), optional, see below
 - Instant updates, including changes made from the Gouly app (local push)
 - Finds the controller on your network automatically, and follows it if its IP address changes
+- A companion [Gouly Card](https://github.com/mikemaat/ha-gouly-card) for browsing the presets,
+  optional - everything here works with Home Assistant's own controls
 
 Planned: music mode, schedules.
 
@@ -140,12 +142,29 @@ numbered: `Christmas`, `Christmas (2)`, and so on. The first of each keeps the p
 favourites and automations written before this still match. Scenes that really are identical are
 dropped.
 
+### The Gouly card
+
+Everything above works with Home Assistant's own light dialog and the entities this integration
+creates - no extra card needed. But picking from 2,600 presets through a dropdown is a poor way to
+spend an evening, so there's a companion card:
+**[Gouly Card](https://github.com/mikemaat/ha-gouly-card)**.
+
+It keeps Home Assistant's own light dialog and adds the preset library to it: a folder menu, a
+search box, favourites as one-tap buttons, and a star on every preset. Install it from HACS as a
+**Dashboard** repository; it needs nothing configured beyond the light's entity id.
+
+Use it or don't - the favourites, presets and services below behave the same either way, and
+automations never depend on it.
+
 ### Favourites
 
 Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones you actually use:
 
 1. Pick a **Preset folder**, then a **Preset** (the lights change as you pick).
 2. Press **Add preset to favourites**.
+
+(With the [Gouly Card](https://github.com/mikemaat/ha-gouly-card) it's the star beside each preset
+instead; these three controls are how it's done without the card.)
 
 Favourites are published as the light's `favourite_presets` attribute, which the
 [Gouly Card](https://github.com/mikemaat/ha-gouly-card) shows as one-tap buttons in the light's
