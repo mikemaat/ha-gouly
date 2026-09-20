@@ -19,8 +19,6 @@ from Home Assistant. No cloud: Home Assistant talks to the controller directly o
 - A companion [Gouly Card](https://github.com/mikemaat/ha-gouly-card) for browsing the presets,
   optional - everything here works with Home Assistant's own controls
 
-Planned: music mode, schedules.
-
 ## Supported hardware
 
 Tested with a **Gouly Pro** controller (Wi-Fi + Bluetooth, 4 outputs, RGBW pixels) controlled by the
