@@ -75,6 +75,10 @@ class GoulyConnection:
         self._listeners.append(listener)
         return lambda: self._listeners.remove(listener)
 
+    def refresh_entities(self) -> None:
+        """Have the entities write their state, without anything having come from the device."""
+        self._notify(None)
+
     def start(self) -> None:
         if self._thread is None:
             self._thread = threading.Thread(

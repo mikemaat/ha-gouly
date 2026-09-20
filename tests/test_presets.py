@@ -136,3 +136,63 @@ def test_all_presets(library) -> None:
         "Christmas / One zone",
         "Halloween / Three zones",
     ]
+
+
+def _zones(effect: int) -> list[dict]:
+    return [
+        {
+            "start": 0,
+            "end": 799,
+            "effect": effect,
+            "speed": 5,
+            "width": 1,
+            "brightness": 100,
+            "direction": 0,
+            "colours": [[255, 0, 0, 0, 0]],
+            "palette": 0,
+        }
+    ]
+
+
+def _library(scenes: list[dict]) -> "presets.PresetLibrary":
+    return presets.PresetLibrary({"version": 1, "folders": {"F": scenes}, "palettes": {}})
+
+
+def test_repeated_names_are_numbered() -> None:
+    """Gouly reuses names within a folder for scenes that differ; each needs its own name."""
+    library = _library(
+        [
+            {"name": "Christmas", "total": 800, "zones": _zones(1)},
+            {"name": "Christmas", "total": 800, "zones": _zones(2)},
+            {"name": "Christmas", "total": 800, "zones": _zones(3)},
+        ]
+    )
+    # The first keeps the plain name, so favourites and automations saved before this still work.
+    assert library.names_in("F") == ["Christmas", "Christmas (2)", "Christmas (3)"]
+    assert library.find("F", "Christmas").zones[0]["effect"] == 1
+    assert library.find("F", "Christmas (3)").zones[0]["effect"] == 3
+
+
+def test_identical_scenes_are_dropped() -> None:
+    library = _library(
+        [
+            {"name": "Same", "total": 800, "zones": _zones(1)},
+            {"name": "Same", "total": 800, "zones": _zones(1)},
+            {"name": "Same", "total": 800, "zones": _zones(2)},
+        ]
+    )
+    assert library.names_in("F") == ["Same", "Same (2)"]
+    assert library.find("F", "Same (2)").zones[0]["effect"] == 2
+
+
+def test_a_name_that_looks_numbered_still_gets_its_own() -> None:
+    library = _library(
+        [
+            {"name": "Glow", "total": 800, "zones": _zones(1)},
+            {"name": "Glow (2)", "total": 800, "zones": _zones(2)},
+            {"name": "Glow", "total": 800, "zones": _zones(3)},
+        ]
+    )
+    assert library.names_in("F") == ["Glow", "Glow (2)", "Glow (3)"]
+    assert library.find("F", "Glow (2)").zones[0]["effect"] == 2
+    assert library.find("F", "Glow (3)").zones[0]["effect"] == 3

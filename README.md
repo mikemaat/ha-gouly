@@ -134,6 +134,12 @@ later from **Settings > Devices & services > Gouly > Configure > Preset library 
 the file into your Home Assistant config folder by hand works too.) Three new controls appear on
 the device: **Preset folder**, **Preset** and **Add preset to favourites**.
 
+Gouly's library reuses names within a folder - "Christmas" appears six times in Christmas 1 - for
+scenes that are actually different. Since presets are referred to by name, the repeats are
+numbered: `Christmas`, `Christmas (2)`, and so on. The first of each keeps the plain name, so
+favourites and automations written before this still match. Scenes that really are identical are
+dropped.
+
 ### Favourites
 
 Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones you actually use:
@@ -141,12 +147,13 @@ Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones yo
 1. Pick a **Preset folder**, then a **Preset** (the lights change as you pick).
 2. Press **Add preset to favourites**.
 
-Favourites then appear in the light's own **Effect** list, next to the 140 effects, so you can
-choose them from the light dialog along with colour and brightness.
+Favourites are published as the light's `favourite_presets` attribute, which the
+[Gouly Card](https://github.com/mikemaat/ha-gouly-card) shows as one-tap buttons in the light's
+dialog. They can be applied from an automation with `gouly.apply_preset`.
 
-Effects and presets are kept apart: the light's **effect list** holds the controller's 140 effects,
-and presets are applied with a service, so an automation never depends on what the effect list
-contains.
+Effects and presets are kept apart: the light's **effect list** holds the controller's 140 effects
+and nothing else, and presets are applied with a service, so an automation never depends on what
+the effect list contains.
 
 | Service | What it does |
 |---|---|
@@ -181,7 +188,7 @@ Favourites can also be managed from scripts and automations, which is what the
 
 | Service | What it does |
 |---|---|
-| `gouly.add_favourite` | Add `preset: "Folder / Preset"` to the effect list |
+| `gouly.add_favourite` | Add `preset: "Folder / Preset"` to the favourites |
 | `gouly.remove_favourite` | Remove it again |
 | `gouly.set_favourites` | Replace the list with `presets: [...]`, in that order |
 

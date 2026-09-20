@@ -1,6 +1,7 @@
 """Services for managing favourite presets.
 
-Favourites are stored in the config entry's options and shown in the light's effect list.
+Favourites are stored in the config entry's options and published as the light's
+favourite_presets attribute.
 Presets are named "Folder / Preset", the same way they appear as effects.
 """
 
@@ -77,7 +78,7 @@ def _preset_for(hass: HomeAssistant, entry: ConfigEntry, name: str):
 
 
 def _save(hass: HomeAssistant, entry: ConfigEntry, favourites: list[list[str]]) -> None:
-    """Store favourites; the update listener reloads the entry and rebuilds the effect list."""
+    """Store favourites. The light republishes them; the entry is not reloaded for this."""
     hass.config_entries.async_update_entry(
         entry, options={**entry.options, CONF_FAVOURITES: favourites}
     )

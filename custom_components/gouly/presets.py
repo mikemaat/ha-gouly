@@ -59,6 +59,34 @@ class Preset:
         return segments
 
 
+def _named(presets: list[Preset]) -> list[Preset]:
+    """Give every preset in a folder its own name.
+
+    Gouly's library reuses names within a folder - 'Christmas' appears six times in Christmas 1 -
+    and those are different scenes, not copies. Presets are referred to by name here, so without
+    this only the first of each could ever be picked. The first keeps the plain name so existing
+    favourites and automations still match; the rest are numbered.
+
+    Scenes that really are identical are dropped.
+    """
+    bodies: set[tuple] = set()
+    taken: set[str] = set()
+    unique: list[Preset] = []
+    for preset in presets:
+        body = (preset.name, preset.total, json.dumps(preset.zones, sort_keys=True))
+        if body in bodies:
+            continue
+        bodies.add(body)
+        name, count = preset.name, 1
+        while name in taken:
+            count += 1
+            name = f"{preset.name} ({count})"
+        taken.add(name)
+        preset.name = name
+        unique.append(preset)
+    return unique
+
+
 class PresetLibrary:
     """Presets grouped by folder."""
 
@@ -66,9 +94,12 @@ class PresetLibrary:
         self.palettes: dict[str, list] = data.get("palettes", {})
         self.folders: dict[str, list[Preset]] = {}
         for folder, scenes in sorted(data.get("folders", {}).items()):
-            self.folders[folder] = [
-                Preset(s["name"], folder, s.get("total", DESIGN_TOTAL), s["zones"]) for s in scenes
-            ]
+            self.folders[folder] = _named(
+                [
+                    Preset(s["name"], folder, s.get("total", DESIGN_TOTAL), s["zones"])
+                    for s in scenes
+                ]
+            )
 
     def __bool__(self) -> bool:
         return bool(self.folders)
