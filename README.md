@@ -150,10 +150,9 @@ automations never depend on it.
 
 ### Favourites
 
-> Favourite, not favorite. That's how we spell it in Canada, where these lights are currently
-> bolted to a soffit in the snow, so deal with it. It matters in one place: the services are
-> `gouly.add_favourite` and friends, and the attribute is `favourite_presets` - spell them the
-> Canadian way or Home Assistant won't find them.
+> Favourite, with the *u* - this was written in Canada. The one place it'll trip you up is the
+> service names (`gouly.add_favourite`) and the `favourite_presets` attribute, so keep the *u*
+> there and Home Assistant will find them.
 
 Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones you actually use:
 
