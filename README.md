@@ -160,7 +160,8 @@ instead; these three controls are how it's done without the card.)
 
 Favourites are published as the light's `favourite_presets` attribute, which the
 [Gouly Card](https://github.com/mikemaat/ha-gouly-card) shows as one-tap buttons in the light's
-dialog. They can be applied from an automation with `gouly.apply_preset`.
+dialog. **Configure > Favourite presets** removes them, and they can be managed from scripts and
+automations - which is what the card does.
 
 Effects and presets are kept apart: the light's **effect list** holds the controller's 140 effects
 and nothing else, and presets are applied with a service, so an automation never depends on what
@@ -171,7 +172,7 @@ the effect list contains.
 | `gouly.apply_preset` | Show `preset: "Folder / Preset"` on the lights |
 | `gouly.add_favourite` | Add it to the favourites |
 | `gouly.remove_favourite` | Remove it again |
-| `gouly.set_favourites` | Replace the favourites with `presets: [...]` |
+| `gouly.set_favourites` | Replace the favourites with `presets: [...]`, in that order |
 
 ```yaml
 # Christmas patterns from dusk, every December evening
@@ -187,21 +188,8 @@ actions:
     data: { preset: "Christmas 1 / Christmas-static" }
 ```
 
-Favourites are published as the light's `favourite_presets` attribute, which is what the
-[Gouly Card](https://github.com/mikemaat/ha-gouly-card) shows. **Configure > Favourite presets**
-removes them.
-
 The light reports the colour a preset is showing: a single colour preset reports that colour, and a
 multi colour one reports none, so a tile doesn't sit there showing the last solid colour you picked.
-
-Favourites can also be managed from scripts and automations, which is what the
-[Gouly Card](https://github.com/mikemaat/ha-gouly-card) uses:
-
-| Service | What it does |
-|---|---|
-| `gouly.add_favourite` | Add `preset: "Folder / Preset"` to the favourites |
-| `gouly.remove_favourite` | Remove it again |
-| `gouly.set_favourites` | Replace the list with `presets: [...]`, in that order |
 
 Presets are designed for an 800 LED string and are scaled to fit yours. The Gouly app instead maps
 a preset's zones onto the controller's four outputs, which can leave most of the string dark; this
