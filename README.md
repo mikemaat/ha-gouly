@@ -134,12 +134,6 @@ later from **Settings > Devices & services > Gouly > Configure > Preset library 
 the file into your Home Assistant config folder by hand works too.) Three new controls appear on
 the device: **Preset folder**, **Preset** and **Add preset to favourites**.
 
-Gouly's library reuses names within a folder - "Christmas" appears six times in Christmas 1 - for
-scenes that are actually different. Since presets are referred to by name, the repeats are
-numbered: `Christmas`, `Christmas (2)`, and so on. The first of each keeps the plain name, so
-favourites and automations written before this still match. Scenes that really are identical are
-dropped.
-
 ### The Gouly card
 
 Everything above works with Home Assistant's own light dialog and the entities this integration
