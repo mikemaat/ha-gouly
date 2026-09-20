@@ -150,7 +150,7 @@ automations never depend on it.
 
 ### Favourites
 
-> Favourite, with the *u* - this was written in Canada. The one place it'll trip you up is the
+> Favourite, with the *u* - this was written in Canada, eh. The one place it'll trip you up is the
 > service names (`gouly.add_favourite`) and the `favourite_presets` attribute, so keep the *u*
 > there and Home Assistant will find them.
 
