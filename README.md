@@ -209,9 +209,8 @@ integration stretches them across the whole string so the pattern looks like its
 
 ## Contributing
 
-The protocol notes are in [docs/PROTOCOL.md](docs/PROTOCOL.md). Effects, presets and music mode
-still need decoding, and captures from other Gouly controllers are especially useful. Issues and
-pull requests are welcome.
+The protocol notes are in [docs/PROTOCOL.md](docs/PROTOCOL.md). Captures from other Gouly
+controllers are especially useful. Issues and pull requests are welcome.
 
 ```sh
 pip install pytest tinytuya
