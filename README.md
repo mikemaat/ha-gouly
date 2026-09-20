@@ -150,9 +150,9 @@ automations never depend on it.
 
 ### Favourites
 
-> Favourite, with a "u" - since this plug-in was built in Canada, eh? The one place it'll trip you
-> up is in the service names (`gouly.add_favourite`) and the `favourite_presets` attribute, so keep
-> the "u" there and Home Assistant will find them. Or be a table-syrup-loving hoser.
+> Favourite, with a "u" - since this integration was built in Canada, eh? The one place it'll trip
+> you up is in the service names (`gouly.add_favourite`) and the `favourite_presets` attribute, so
+> keep the "u" there and Home Assistant will find them. Or be a table-syrup-loving hoser.
 
 Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones you actually use:
 
