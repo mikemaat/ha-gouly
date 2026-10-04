@@ -1,28 +1,33 @@
-"""Services for managing favourite presets.
+"""Services for applying presets and managing favourite and custom presets.
 
 Favourites are stored in the config entry's options and published as the light's
 favourite_presets attribute.
 Presets are named "Folder / Preset", the same way they appear as effects.
+Custom presets are scenes saved from the lights; see presets.py.
 """
 
 from __future__ import annotations
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
+from . import presets
 from .const import CONF_FAVOURITES, DOMAIN
 
 SERVICE_APPLY_PRESET = "apply_preset"
 SERVICE_ADD_FAVOURITE = "add_favourite"
 SERVICE_REMOVE_FAVOURITE = "remove_favourite"
 SERVICE_SET_FAVOURITES = "set_favourites"
+SERVICE_SAVE_CUSTOM_PRESET = "save_custom_preset"
+SERVICE_DELETE_CUSTOM_PRESET = "delete_custom_preset"
 
 ATTR_PRESET = "preset"
 ATTR_PRESETS = "presets"
+ATTR_NAME = "name"
 
 PRESET_SCHEMA = vol.Schema(
     {vol.Required("entity_id"): cv.entity_ids, vol.Required(ATTR_PRESET): cv.string}
@@ -33,6 +38,10 @@ PRESETS_SCHEMA = vol.Schema(
         vol.Required(ATTR_PRESETS): vol.All(cv.ensure_list, [cv.string]),
     }
 )
+SAVE_CUSTOM_SCHEMA = vol.Schema(
+    {vol.Required("entity_id"): cv.entity_ids, vol.Required(ATTR_NAME): cv.string}
+)
+DELETE_CUSTOM_SCHEMA = vol.Schema({vol.Required(ATTR_NAME): cv.string})
 
 
 def _split(preset: str) -> list[str]:
@@ -84,8 +93,59 @@ def _save(hass: HomeAssistant, entry: ConfigEntry, favourites: list[list[str]]) 
     )
 
 
+def _custom_name(name: str) -> str:
+    """A custom preset's own name, whether given as 'Custom / Name' or just 'Name'."""
+    folder, _, rest = name.strip().partition(" / ")
+    name = (rest if folder == presets.CUSTOM_FOLDER and rest else name).strip()
+    if not name:
+        raise ServiceValidationError("Give the custom preset a name.")
+    return name
+
+
+async def async_save_custom_preset(hass: HomeAssistant, entry: ConfigEntry, name: str) -> str:
+    """Save the scene the lights were last sent as a custom preset. Returns its full name."""
+    name = _custom_name(name)
+    connection = entry.runtime_data
+    segments = connection.scene.segments
+    if not segments:
+        raise ServiceValidationError(
+            "Home Assistant hasn't seen a scene sent to these lights yet. Load it from the Gouly "
+            "app (or apply a preset) while Home Assistant is connected, then save it."
+        )
+    total = connection.layout.total if connection.layout else max(s.end for s in segments)
+    zones = presets.zones_from_segments(segments)
+    custom = await hass.async_add_executor_job(
+        presets.save_custom, hass.config.config_dir, name, total, zones
+    )
+    _async_update_custom(hass, custom)
+    return f"{presets.CUSTOM_FOLDER} / {name}"
+
+
+async def async_delete_custom_preset(hass: HomeAssistant, name: str) -> None:
+    """Delete a custom preset."""
+    name = _custom_name(name)
+    custom = await hass.async_add_executor_job(presets.delete_custom, hass.config.config_dir, name)
+    if custom is None:
+        raise ServiceValidationError(f"There's no custom preset called {name!r}.")
+    _async_update_custom(hass, custom)
+
+
+def _async_update_custom(hass: HomeAssistant, custom: list[dict]) -> None:
+    """Show the new custom presets on every controller (they're shared between them)."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.state is not ConfigEntryState.LOADED:
+            continue
+        connection = entry.runtime_data
+        if connection.presets is None:
+            # No library was loaded, so there are no preset controls yet; setup adds them.
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+            continue
+        connection.presets.set_custom(custom)
+        connection.refresh_entities()
+
+
 def async_register(hass: HomeAssistant) -> None:
-    """Register the favourite services once."""
+    """Register the services once."""
     if hass.services.has_service(DOMAIN, SERVICE_APPLY_PRESET):
         return
 
@@ -119,6 +179,12 @@ def async_register(hass: HomeAssistant) -> None:
         entry = _entry_for(hass, call)
         _save(hass, entry, [_split(preset) for preset in call.data[ATTR_PRESETS]])
 
+    async def save_custom_preset(call: ServiceCall) -> None:
+        await async_save_custom_preset(hass, _entry_for(hass, call), call.data[ATTR_NAME])
+
+    async def delete_custom_preset(call: ServiceCall) -> None:
+        await async_delete_custom_preset(hass, call.data[ATTR_NAME])
+
     hass.services.async_register(DOMAIN, SERVICE_APPLY_PRESET, apply_preset, schema=PRESET_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_ADD_FAVOURITE, add_favourite, schema=PRESET_SCHEMA)
     hass.services.async_register(
@@ -126,4 +192,10 @@ def async_register(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_SET_FAVOURITES, set_favourites, schema=PRESETS_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SAVE_CUSTOM_PRESET, save_custom_preset, schema=SAVE_CUSTOM_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE_CUSTOM_PRESET, delete_custom_preset, schema=DELETE_CUSTOM_SCHEMA
     )

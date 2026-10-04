@@ -69,6 +69,14 @@
     "button": {
       "add_favourite": {
         "name": "Add preset to favourites"
+      },
+      "save_custom_preset": {
+        "name": "Save lights as custom preset"
+      }
+    },
+    "text": {
+      "custom_preset_name": {
+        "name": "Custom preset name"
       }
     }
   },
@@ -138,6 +146,26 @@
         "presets": {
           "name": "Presets",
           "description": "Presets named 'Folder / Preset', in the order they should appear."
+        }
+      }
+    },
+    "save_custom_preset": {
+      "name": "Save custom preset",
+      "description": "Save the scene the lights were last sent - from the Gouly app or Home Assistant - as a preset in the Custom folder. An existing custom preset with the same name is replaced.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "The custom preset's name, e.g. 'Oilers'. Apply it as 'Custom / Oilers'."
+        }
+      }
+    },
+    "delete_custom_preset": {
+      "name": "Delete custom preset",
+      "description": "Delete a preset from the Custom folder.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "The custom preset's name, e.g. 'Oilers' or 'Custom / Oilers'."
         }
       }
     }

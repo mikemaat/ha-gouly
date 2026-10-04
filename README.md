@@ -14,6 +14,7 @@ from Home Assistant. No cloud: Home Assistant talks to the controller directly o
 - On/off, brightness and RGBW colour
 - 140 effects (Twinkle, Fireworks, Chase Rainbow, Breathing, ...) with an effect speed control
 - The Gouly app's preset library (Christmas, Halloween, sports teams, ...), optional, see below
+- Custom presets: save a scene made in the Gouly app from the lights into Home Assistant
 - Instant updates, including changes made from the Gouly app (local push)
 - Finds the controller on your network automatically, and follows it if its IP address changes
 - A companion [Gouly Card](https://github.com/mikemaat/ha-gouly-card) for browsing the presets,
@@ -132,7 +133,9 @@ uvx --from git+https://github.com/mikemaat/ha-gouly gouly-keys presets
 Then either upload `gouly_presets.json` on the last step when adding the integration, or add it
 later from **Settings > Devices & services > Gouly > Configure > Preset library file**. (Copying
 the file into your Home Assistant config folder by hand works too.) Three new controls appear on
-the device: **Preset folder**, **Preset** and **Add preset to favourites**.
+the device: **Preset folder**, **Preset** and **Add preset to favourites**. (The **Custom preset
+name** and **Save lights as custom preset** controls are always there, see
+[Custom presets](#custom-presets).)
 
 ### The Gouly card
 
@@ -177,6 +180,8 @@ the effect list contains.
 | `gouly.add_favourite` | Add it to the favourites |
 | `gouly.remove_favourite` | Remove it again |
 | `gouly.set_favourites` | Replace the favourites with `presets: [...]`, in that order |
+| `gouly.save_custom_preset` | Save what the lights are showing as `name: "..."` in the Custom folder |
+| `gouly.delete_custom_preset` | Delete `name: "..."` from the Custom folder |
 
 ```yaml
 # Christmas patterns from dusk, every December evening
@@ -198,6 +203,31 @@ multi colour one reports none, so a tile doesn't sit there showing the last soli
 Presets are designed for an 800 LED string and are scaled to fit yours. The Gouly app instead maps
 a preset's zones onto the controller's four outputs, which can leave most of the string dark; this
 integration stretches them across the whole string so the pattern looks like its preview.
+
+### Custom presets
+
+The library is read from the Gouly app package, so it holds Gouly's originals: colours you change
+in the app stay on your phone (the app doesn't even sync them between phones) and never reach Home
+Assistant. To keep your own version of a scene, save it from the lights instead:
+
+1. Make the scene in the Gouly app and send it to the lights.
+2. Type a name in the device's **Custom preset name** box, e.g. `Oilers`.
+3. Press **Save lights as custom preset**.
+
+It appears as **Custom / Oilers** - in the Preset folder list, the card, and anywhere a preset name
+goes, such as `gouly.apply_preset`. Saving under a name that already exists replaces it, so to
+tweak a preset, change it in the app, send it to the lights and press the button again. Custom
+presets are shared by all your controllers and are scaled to each one's LED count like the
+library's.
+
+This works because the controller echoes everything it's sent, so Home Assistant sees the scene
+whether it came from the app or from Home Assistant itself. It has to be connected while the scene
+is sent, so if the button says it hasn't seen one, send the scene from the app again. A preset from
+the library can be saved the same way, as a starting point. Music mode and the global brightness
+aren't part of a scene and aren't saved.
+
+Custom presets live in `gouly_custom_presets.json` in your Home Assistant config folder, separate
+from the library, so re-installing the library never touches them.
 
 ## Contributing
 

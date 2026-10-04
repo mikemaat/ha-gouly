@@ -41,3 +41,22 @@ set_favourites:
       example: '["Christmas 1 / Christmas-static", "Halloween 1 / Halloween-4"]'
       selector:
         object:
+
+save_custom_preset:
+  target:
+    entity:
+      integration: gouly
+  fields:
+    name:
+      required: true
+      example: "Oilers"
+      selector:
+        text:
+
+delete_custom_preset:
+  fields:
+    name:
+      required: true
+      example: "Oilers"
+      selector:
+        text:

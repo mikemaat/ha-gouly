@@ -133,3 +133,57 @@ def test_multi_colour_scene_reports_each_distinct_colour() -> None:
 def test_palette_survives_a_dp_round_trip() -> None:
     raw = protocol.encode_dp(bytes.fromhex(SEGMENT_WITH_PALETTE))
     assert protocol.parse_dps({"101": raw}).palette == [(0, 255, 0, 0, 0), (255, 255, 255, 0, 0)]
+
+
+@pytest.mark.parametrize("frame", [SEGMENT_WITH_PALETTE, CAPTURED_RED[2]])
+def test_captured_segments_rebuild_exactly(frame: str) -> None:
+    """A segment read back from the app's frame is sent again byte for byte."""
+    seg = protocol.parse_segment(bytes.fromhex(frame)[2:-1])
+    assert protocol.segment(seg).hex() == frame
+
+
+def test_parse_segment_reads_the_fields() -> None:
+    seg = protocol.parse_segment(bytes.fromhex(SEGMENT_WITH_PALETTE)[2:-1])
+    assert (seg.start, seg.end, seg.effect, seg.speed) == (0, 999, 154, 120)
+    assert seg.palette[:2] == [(0, 255, 0, 0, 0, 255), (255, 255, 255, 0, 0, 255)]
+    assert len(seg.palette) == 4
+
+
+def test_parse_segment_rejects_other_frames() -> None:
+    with pytest.raises(protocol.FrameError):
+        protocol.parse_segment(bytes.fromhex(CAPTURED_RED[1])[2:-1])
+
+
+def test_scene_recorder_keeps_the_last_whole_scene() -> None:
+    recorder = protocol.SceneRecorder()
+    for frame in CAPTURED_RED:
+        recorder.feed(bytes.fromhex(frame))
+    assert recorder.segments is not None and recorder.segments[0].colours[0] == (255, 0, 0, 0, 0)
+
+    layout = protocol.Layout(1599, (999, 200, 200, 200))
+    seg = protocol.parse_segment(bytes.fromhex(SEGMENT_WITH_PALETTE)[2:-1])
+    for frame in protocol.scene(layout, [seg, seg]):
+        recorder.feed(frame)
+    assert [s.effect for s in recorder.segments] == [154, 154]
+
+
+def test_scene_recorder_ignores_unfinished_scenes() -> None:
+    recorder = protocol.SceneRecorder()
+    for frame in CAPTURED_RED:
+        recorder.feed(bytes.fromhex(frame))
+    before = recorder.segments
+    layout = protocol.Layout(1599, (999, 200, 200, 200))
+    frames = protocol.scene(layout, [protocol.parse_segment(bytes.fromhex(SEGMENT_WITH_PALETTE)[2:-1])])
+    for frame in frames[:-1]:  # no save
+        recorder.feed(frame)
+    assert recorder.segments is before
+    recorder.reset()
+    recorder.feed(frames[-1])  # a save on its own doesn't make a scene
+    assert recorder.segments is before
+
+
+def test_scene_recorder_needs_a_header() -> None:
+    recorder = protocol.SceneRecorder()
+    recorder.feed(bytes.fromhex(SEGMENT_WITH_PALETTE))
+    recorder.feed(protocol.save())
+    assert recorder.segments is None

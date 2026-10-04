@@ -2,6 +2,10 @@
 
 The library is Gouly's content and is not shipped with this integration. If the user drops
 `gouly_presets.json` into their Home Assistant config folder, presets become available.
+
+Custom presets - scenes saved from the lights - live in their own file,
+`gouly_custom_presets.json`, so re-installing the library never touches them. They appear in the
+library as the Custom folder.
 """
 
 from __future__ import annotations
@@ -16,6 +20,8 @@ from . import protocol
 _LOGGER = logging.getLogger(__name__)
 
 PRESETS_FILE = "gouly_presets.json"
+CUSTOM_PRESETS_FILE = "gouly_custom_presets.json"
+CUSTOM_FOLDER = "Custom"
 SUPPORTED_VERSION = 1
 # The app's preset library is designed for this many LEDs; zones are scaled from it.
 DESIGN_TOTAL = 800
@@ -35,8 +41,10 @@ class Preset:
         segments: list[protocol.Segment] = []
         for index, zone in enumerate(self.zones):
             start = round(zone["start"] * scale)
-            # Stretch the last zone to the end so rounding never leaves a dark tail.
-            end = layout.total if index == len(self.zones) - 1 else round((zone["end"] + 1) * scale)
+            # Stretch the last zone to the end so rounding never leaves a dark tail. Unscaled (a
+            # custom preset on the string it was saved from) it's shown exactly as it was.
+            last = index == len(self.zones) - 1
+            end = layout.total if last and scale != 1 else round((zone["end"] + 1) * scale)
             if start >= end or start >= layout.total:
                 continue
             colours = tuple(tuple(c) for c in zone["colours"])  # type: ignore[assignment]
@@ -51,7 +59,11 @@ class Preset:
                     direction=zone["direction"],
                     colours=colours,
                     panel_id=zone["palette"],
-                    palette=[tuple(c) for c in palettes.get(str(zone["palette"]), [])],
+                    # Custom presets carry their palette; the library's are shared by id.
+                    palette=[
+                        tuple(c)
+                        for c in zone.get("palette_colours", palettes.get(str(zone["palette"]), []))
+                    ],
                     segment_id=index,
                     is_on=zone.get("on", True),
                 )
@@ -87,10 +99,30 @@ def _named(presets: list[Preset]) -> list[Preset]:
     return unique
 
 
-class PresetLibrary:
-    """Presets grouped by folder."""
+def zones_from_segments(segments: list[protocol.Segment]) -> list[dict]:
+    """Describe a scene the way the library does, so it can be stored as a custom preset."""
+    return [
+        {
+            "start": seg.start,
+            "end": seg.end - 1,
+            "effect": seg.effect,
+            "speed": seg.speed,
+            "width": seg.width,
+            "brightness": seg.brightness,
+            "direction": seg.direction,
+            "on": seg.is_on,
+            "colours": [list(c) for c in seg.colours],
+            "palette": seg.panel_id,
+            "palette_colours": [list(c) for c in seg.palette],
+        }
+        for seg in segments
+    ]
 
-    def __init__(self, data: dict) -> None:
+
+class PresetLibrary:
+    """Presets grouped by folder, with the custom presets first."""
+
+    def __init__(self, data: dict, custom: list[dict] | None = None) -> None:
         self.palettes: dict[str, list] = data.get("palettes", {})
         self.folders: dict[str, list[Preset]] = {}
         for folder, scenes in sorted(data.get("folders", {}).items()):
@@ -100,6 +132,14 @@ class PresetLibrary:
                     for s in scenes
                 ]
             )
+        self.set_custom(custom or [])
+
+    def set_custom(self, scenes: list[dict]) -> None:
+        """Replace the Custom folder."""
+        self.folders.pop(CUSTOM_FOLDER, None)
+        if scenes:
+            custom = [Preset(s["name"], CUSTOM_FOLDER, s["total"], s["zones"]) for s in scenes]
+            self.folders = {CUSTOM_FOLDER: custom, **self.folders}
 
     def __bool__(self) -> bool:
         return bool(self.folders)
@@ -159,9 +199,71 @@ def install(source: Path, config_dir: str) -> tuple[int, int]:
     return counts
 
 
+def load_custom(config_dir: str) -> list[dict]:
+    """The custom presets saved from the lights, in the order they were first saved."""
+    path = Path(config_dir) / CUSTOM_PRESETS_FILE
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        _LOGGER.warning("Couldn't read %s: %s", path, err)
+        return []
+    if not isinstance(data, dict) or data.get("version") != SUPPORTED_VERSION:
+        _LOGGER.warning("%s isn't a custom preset file this integration can read", path)
+        return []
+    return [
+        p for p in data.get("presets", []) if isinstance(p, dict) and p.get("name") and p.get("zones")
+    ]
+
+
+def save_custom(config_dir: str, name: str, total: int, zones: list[dict]) -> list[dict]:
+    """Add a custom preset, replacing one with the same name. Returns them all."""
+    presets = load_custom(config_dir)
+    preset = {"name": name, "total": total, "zones": zones}
+    index = next((i for i, p in enumerate(presets) if p["name"] == name), None)
+    if index is None:
+        presets.append(preset)
+    else:
+        presets[index] = preset
+    _write_custom(config_dir, presets)
+    return presets
+
+
+def delete_custom(config_dir: str, name: str) -> list[dict] | None:
+    """Remove a custom preset. Returns what's left, or None if there was no such preset."""
+    presets = load_custom(config_dir)
+    remaining = [p for p in presets if p["name"] != name]
+    if len(remaining) == len(presets):
+        return None
+    _write_custom(config_dir, remaining)
+    return remaining
+
+
+def _write_custom(config_dir: str, presets: list[dict]) -> None:
+    path = Path(config_dir) / CUSTOM_PRESETS_FILE
+    data = {"version": SUPPORTED_VERSION, "presets": presets}
+    path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+
+
 def load(config_dir: str) -> PresetLibrary | None:
-    """Load the preset library from the Home Assistant config folder, if present."""
-    path = Path(config_dir) / PRESETS_FILE
+    """Load the preset library and custom presets from the config folder, if there are any."""
+    custom = load_custom(config_dir)
+    data = _load_library(Path(config_dir) / PRESETS_FILE)
+    if data is None and not custom:
+        return None
+    library = PresetLibrary(data or {}, custom)
+    _LOGGER.info(
+        "Loaded %s presets in %s folders from %s",
+        sum(len(v) for v in library.folders.values()),
+        len(library.folders),
+        config_dir,
+    )
+    return library
+
+
+def _load_library(path: Path) -> dict | None:
+    """The library extracted from the Gouly app, if it's installed and readable."""
     if not path.is_file():
         return None
     try:
@@ -177,11 +279,4 @@ def load(config_dir: str) -> PresetLibrary | None:
             SUPPORTED_VERSION,
         )
         return None
-    library = PresetLibrary(data)
-    _LOGGER.info(
-        "Loaded %s presets in %s folders from %s",
-        sum(len(v) for v in library.folders.values()),
-        len(library.folders),
-        path,
-    )
-    return library
+    return data

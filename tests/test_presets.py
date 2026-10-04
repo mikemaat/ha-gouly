@@ -196,3 +196,80 @@ def test_a_name_that_looks_numbered_still_gets_its_own() -> None:
     assert library.names_in("F") == ["Glow", "Glow (2)", "Glow (3)"]
     assert library.find("F", "Glow (2)").zones[0]["effect"] == 2
     assert library.find("F", "Glow (3)").zones[0]["effect"] == 3
+
+
+# Custom presets ---------------------------------------------------------------------------
+
+# A three zone scene as the Gouly app would send it, the last zone stopping short of the end.
+APP_SCENE = [
+    protocol.Segment(0, 500, 154, speed=90, palette=[(0, 255, 0, 0, 0, 255), (255, 255, 255, 0, 0, 255)],
+                     panel_id=17, segment_id=0),
+    protocol.Segment(501, 1000, 0, colours=((255, 80, 0, 0, 0), (0, 0, 0, 0, 0), (0, 0, 0, 0, 0)), segment_id=1),
+    protocol.Segment(1001, 1500, 12, direction=1, brightness=128, segment_id=2,
+                     palette=[(0, 32, 91, 0, 0, 255), (252, 76, 2, 0, 0, 255)], panel_id=3),
+]
+
+
+def _capture(segments: list) -> list:
+    recorder = protocol.SceneRecorder()
+    for frame in protocol.scene(LAYOUT, segments):
+        recorder.feed(frame)
+    return recorder.segments
+
+
+def test_a_saved_scene_is_sent_back_exactly(tmp_path) -> None:
+    captured = _capture(APP_SCENE)
+    presets.save_custom(str(tmp_path), "Oilers", LAYOUT.total, presets.zones_from_segments(captured))
+    library = presets.load(str(tmp_path))  # no library installed, only the custom preset
+    assert library.folder_names == [presets.CUSTOM_FOLDER]
+    frames = library.frames(library.find(presets.CUSTOM_FOLDER, "Oilers"), LAYOUT)
+    assert frames == protocol.scene(LAYOUT, APP_SCENE)
+
+
+def test_custom_presets_scale_to_a_different_string(tmp_path) -> None:
+    presets.save_custom(str(tmp_path), "Oilers", LAYOUT.total, presets.zones_from_segments(_capture(APP_SCENE)))
+    library = presets.load(str(tmp_path))
+    small = protocol.Layout(800, (800, 0, 0, 0))
+    segments = library.find(presets.CUSTOM_FOLDER, "Oilers").segments(small, library.palettes)
+    assert segments[-1].end == small.total
+    assert segments[0].palette == APP_SCENE[0].palette
+
+
+def test_custom_presets_come_first_and_leave_the_library_alone(tmp_path) -> None:
+    import json as _json
+
+    (tmp_path / presets.PRESETS_FILE).write_text(_json.dumps(LIBRARY), encoding="utf-8")
+    presets.save_custom(str(tmp_path), "Oilers", LAYOUT.total, presets.zones_from_segments(_capture(APP_SCENE)))
+    library = presets.load(str(tmp_path))
+    assert library.folder_names == [presets.CUSTOM_FOLDER, "Christmas", "Halloween"]
+    assert _json.loads((tmp_path / presets.PRESETS_FILE).read_text(encoding="utf-8")) == LIBRARY
+
+
+def test_saving_under_the_same_name_replaces_it(tmp_path) -> None:
+    config = str(tmp_path)
+    presets.save_custom(config, "Oilers", LAYOUT.total, presets.zones_from_segments(_capture(APP_SCENE)))
+    presets.save_custom(config, "Flames", LAYOUT.total, presets.zones_from_segments(_capture(APP_SCENE[:1])))
+    custom = presets.save_custom(config, "Oilers", LAYOUT.total, presets.zones_from_segments(_capture(APP_SCENE[1:])))
+    assert [(p["name"], len(p["zones"])) for p in custom] == [("Oilers", 2), ("Flames", 1)]
+    assert presets.load_custom(config) == custom
+
+
+def test_delete_custom(tmp_path) -> None:
+    config = str(tmp_path)
+    presets.save_custom(config, "Oilers", LAYOUT.total, presets.zones_from_segments(_capture(APP_SCENE)))
+    assert presets.delete_custom(config, "Nope") is None
+    assert presets.delete_custom(config, "Oilers") == []
+    assert presets.load(config) is None
+
+
+def test_set_custom_updates_the_library(library) -> None:
+    library.set_custom([{"name": "Oilers", "total": LAYOUT.total, "zones": presets.zones_from_segments(APP_SCENE)}])
+    assert library.folder_names[0] == presets.CUSTOM_FOLDER
+    assert library.find_by_effect_name("Custom / Oilers") is not None
+    library.set_custom([])
+    assert library.folder_names == ["Christmas", "Halloween"]
+
+
+def test_unreadable_custom_file_is_ignored(tmp_path) -> None:
+    (tmp_path / presets.CUSTOM_PRESETS_FILE).write_text("{oops", encoding="utf-8")
+    assert presets.load_custom(str(tmp_path)) == []

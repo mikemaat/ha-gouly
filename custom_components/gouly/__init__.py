@@ -21,7 +21,13 @@ from .discovery import discover, networks_for_addresses
 from .presets import load as load_presets
 from .services import async_register as async_register_services
 
-PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.LIGHT, Platform.NUMBER, Platform.SELECT]
+PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
+    Platform.LIGHT,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.TEXT,
+]
 
 type GoulyConfigEntry = ConfigEntry[GoulyConnection]
 

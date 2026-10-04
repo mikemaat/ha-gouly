@@ -176,6 +176,72 @@ def segment(seg: Segment) -> bytes:
     return build_frame(CMD_PROGRAM, bytes(payload), LEN_SEGMENT)
 
 
+def parse_segment(data: bytes) -> Segment:
+    """Read a segment frame's payload (from SUB_SEGMENT up to the CRC) back into a Segment.
+
+    The inverse of segment(): start and end are sent as the value minus one, and the palette
+    is sent already scaled by each entry's brightness, so it comes back at full brightness.
+    """
+    # data: A2 tog seg on start(2) end(2) effect speed width bright dir c1(5) c2(5) c3(5)
+    #       panel palette(16x5) count
+    if len(data) < 110 or data[0] != SUB_SEGMENT:
+        raise FrameError("not a segment frame")
+    start = int.from_bytes(data[4:6], "big")
+    end = int.from_bytes(data[6:8], "big")
+    count = min(data[109], PALETTE_SIZE)
+    palette = [(*data[29 + i * 5 : 34 + i * 5], 255) for i in range(count)]
+    return Segment(
+        start=start + 1 if start else 0,
+        end=end + 1,
+        effect=data[8],
+        speed=data[9],
+        width=data[10],
+        brightness=data[11],
+        direction=data[12],
+        colours=tuple(tuple(data[i : i + 5]) for i in (13, 18, 23)),  # type: ignore[arg-type]
+        panel_id=data[28],
+        palette=palette,  # type: ignore[arg-type]
+        segment_id=data[2],
+        is_on=data[3] == 1,
+    )
+
+
+class SceneRecorder:
+    """Remembers the last complete scene sent to the controller, from its command echoes.
+
+    A scene is a header, its segments and a save (see scene()). Whoever sent it - the Gouly app
+    or Home Assistant - the controller echoes each frame, so this sees what the lights are
+    showing even when it was made in the app.
+    """
+
+    def __init__(self) -> None:
+        self._pending: list[Segment] | None = None
+        self.segments: list[Segment] | None = None
+
+    def feed(self, frame: bytes) -> None:
+        try:
+            verify_frame(frame)
+        except FrameError:
+            return
+        if frame[0] != HEADER_COMMAND:
+            return
+        command, data = frame[1], frame[2:-1]
+        if command == CMD_PROGRAM and data[:1] == bytes([SUB_SCENE_HEADER]):
+            self._pending = []
+        elif command == CMD_PROGRAM and data[:1] == bytes([SUB_SEGMENT]) and self._pending is not None:
+            try:
+                self._pending.append(parse_segment(data))
+            except FrameError:
+                self._pending = None
+        elif command == CMD_APPLY and self._pending:
+            self.segments = self._pending
+            self._pending = None
+
+    def reset(self) -> None:
+        """Forget a half-received scene (after a reconnect, its other frames are gone)."""
+        self._pending = None
+
+
 def music_mode(on: bool, mode: int = 0) -> bytes:
     """Turn music mode on or off (the app sends 'off' before setting a colour or effect)."""
     return build_frame(CMD_MUSIC_MODE, bytes([1 if on else 0, mode]))

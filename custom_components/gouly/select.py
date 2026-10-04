@@ -69,9 +69,19 @@ class GoulyFolderSelect(_GoulyBaseSelect):
     def __init__(self, entry: GoulyConfigEntry, library: PresetLibrary) -> None:
         super().__init__(entry, "preset_folder")
         self._library = library
-        self._attr_options = library.folder_names
-        self._attr_current_option = self._attr_options[0] if self._attr_options else None
+        self._attr_current_option = library.folder_names[0] if library.folder_names else None
         self._listeners: list[Callable[[str], None]] = []
+
+    # Read from the library each time, so saved or deleted custom presets show up straight away.
+    @property
+    def options(self) -> list[str]:
+        return self._library.folder_names
+
+    @property
+    def current_option(self) -> str | None:
+        if self._attr_current_option in self.options:
+            return self._attr_current_option
+        return self.options[0] if self.options else None
 
     def add_listener(self, listener: Callable[[str], None]) -> None:
         self._listeners.append(listener)
@@ -93,12 +103,18 @@ class GoulyPresetSelect(_GoulyBaseSelect):
         self._library = library
         self._folder = folder
         self._attr_current_option = None
-        self._attr_options = library.names_in(folder.current_option or "")
         folder.add_listener(self._folder_changed)
 
+    @property
+    def options(self) -> list[str]:
+        return self._library.names_in(self._folder.current_option or "")
+
+    @property
+    def current_option(self) -> str | None:
+        return self._attr_current_option if self._attr_current_option in self.options else None
+
     @callback
-    def _folder_changed(self, folder: str) -> None:
-        self._attr_options = self._library.names_in(folder)
+    def _folder_changed(self, _folder: str) -> None:
         self._attr_current_option = None
         self.async_write_ha_state()
 

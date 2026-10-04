@@ -117,6 +117,37 @@ Presets are designed for an 800 LED string. The app maps a preset's zones onto t
 four outputs, which leaves nothing lit when a preset has more zones than outputs; scaling the
 zones proportionally to the controller's LED count reproduces the intended pattern instead.
 
+Edits made to a preset in the app are stored in the app's own data on the phone (they don't sync
+between phones either), so they are never in the APK's library.
+
+### Custom presets (scenes read back from echoes)
+
+There is no known query for the scene the controller is showing, but the controller echoes every
+`F3 A1` header, `F3 A2` segment and `A0` save it is sent, by the app or by Home Assistant. The
+integration keeps the segments between the last header and the save that follows it as "the
+current scene" (a scene missing its header or save is dropped; so is a half-received one when the
+connection drops). Read back, a segment rebuilds byte for byte:
+
+* `start` raw 0 becomes 0, raw `n` becomes `n + 1`; `end` raw `n` becomes `n + 1` (exclusive).
+* The palette comes back already scaled by each entry's brightness, so it is stored at full
+  brightness, and `paletteLen` says how many entries are real.
+
+A saved scene is written to `gouly_custom_presets.json`, next to the library and in the same zone
+format, with two differences: `total` is the controller's own LED count rather than 800, and each
+zone carries its palette inline as `palette_colours` instead of by id (the `palette` field keeps
+the raw `paletteId` byte):
+
+```json
+{"version": 1, "presets": [{"name": "Oilers", "total": 1599, "zones": [
+  {"start": 0, "end": 1598, "effect": 154, "speed": 120, "width": 0, "brightness": 255,
+   "direction": 0, "on": true, "colours": [[0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0]],
+   "palette": 9, "palette_colours": [[4,30,66,0,0,255], [252,76,2,0,0,255]]}]}]}
+```
+
+On the controller it was saved from, the zones aren't scaled and are sent exactly as captured; on
+a string of another length they are scaled like library presets (and only then is the last zone
+stretched to the end).
+
 ### Not decoded yet
 
 - Music mode data (`C7` with a mode, `AA C8` rhythm frames).

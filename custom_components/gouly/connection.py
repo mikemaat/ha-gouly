@@ -63,6 +63,10 @@ class GoulyConnection:
         self.effect_speed = DEFAULT_EFFECT_SPEED
         self.effect: int | None = None
         self.colour: protocol.Colour = (255, 255, 255, 0, 0)
+        # The last whole scene the lights were sent, so it can be saved as a custom preset.
+        self.scene = protocol.SceneRecorder()
+        # The name the Custom preset name text entity holds.
+        self.custom_preset_name = ""
         # Optional preset library, set during setup (see presets.py).
         self.presets: object | None = None
         # The preset currently chosen in the select entities, as (folder, name).
@@ -148,6 +152,7 @@ class GoulyConnection:
                 if not isinstance(status, dict) or "dps" not in status:
                     raise ConnectionError(f"status failed: {status}")
                 failures = 0
+                self.scene.reset()
                 _LOGGER.debug("Connected to Gouly controller %s at %s", self.device_id, self.host)
                 self._set_available(True)
                 self._handle_payload(status)
@@ -225,6 +230,12 @@ class GoulyConnection:
             return
         dps = payload.get("dps")
         if isinstance(dps, dict):
+            raw = dps.get(protocol.DP_TRANSPARENT)
+            if isinstance(raw, str):
+                try:
+                    self.scene.feed(protocol.decode_dp(raw))
+                except ValueError:
+                    pass
             update = protocol.parse_dps(dps)
             if update.layout is not None:
                 self.layout = update.layout

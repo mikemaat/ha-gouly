@@ -1,6 +1,7 @@
 # Device credentials and captures - never commit these
 gouly_devices*.json
 gouly_presets*.json
+gouly_custom_presets*.json
 captures/
 *.log
 
