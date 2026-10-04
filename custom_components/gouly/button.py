@@ -75,7 +75,7 @@ class GoulyFavouriteButton(_GoulyBaseButton):
         selected = self._connection.selected_preset
         if selected is None:
             raise HomeAssistantError(
-                "Choose a preset first: pick a Preset folder, then a Preset, then press this."
+                "Choose a preset first: pick a Preset folder, then a Preset name, then press this."
             )
         folder, name = selected
         favourites = [list(f) for f in self._entry.options.get(CONF_FAVOURITES, [])]

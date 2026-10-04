@@ -133,8 +133,8 @@ uvx --from git+https://github.com/mikemaat/ha-gouly gouly-keys presets
 Then either upload `gouly_presets.json` on the last step when adding the integration, or add it
 later from **Settings > Devices & services > Gouly > Configure > Preset library file**. (Copying
 the file into your Home Assistant config folder by hand works too.) Three new controls appear on
-the device: **Preset folder**, **Preset** and **Add preset to favourites**. (The **Custom preset
-name** and **Save lights as custom preset** controls are always there, see
+the device: **Preset folder**, **Preset name** and **Add preset to favourites**. (The **Custom preset
+name** and **Custom preset save from lights** controls are always there, see
 [Custom presets](#custom-presets).)
 
 ### The Gouly card
@@ -159,7 +159,7 @@ automations never depend on it.
 
 Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones you actually use:
 
-1. Pick a **Preset folder**, then a **Preset** (the lights change as you pick).
+1. Pick a **Preset folder**, then a **Preset name** (the lights change as you pick).
 2. Press **Add preset to favourites**.
 
 (With the [Gouly Card](https://github.com/mikemaat/ha-gouly-card) it's the star beside each preset
@@ -212,7 +212,7 @@ Assistant. To keep your own version of a scene, save it from the lights instead:
 
 1. Make the scene in the Gouly app and send it to the lights.
 2. Type a name in the device's **Custom preset name** box, e.g. `Oilers`.
-3. Press **Save lights as custom preset**.
+3. Press **Custom preset save from lights**.
 
 It appears as **Custom / Oilers** - in the Preset folder list, the card, and anywhere a preset name
 goes, such as `gouly.apply_preset`. Saving under a name that already exists replaces it, so to

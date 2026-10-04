@@ -63,7 +63,7 @@
         "name": "Preset folder"
       },
       "preset": {
-        "name": "Preset"
+        "name": "Preset name"
       }
     },
     "button": {
@@ -71,7 +71,7 @@
         "name": "Add preset to favourites"
       },
       "save_custom_preset": {
-        "name": "Save lights as custom preset"
+        "name": "Custom preset save from lights"
       }
     },
     "text": {

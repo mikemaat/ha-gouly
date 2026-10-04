@@ -1,4 +1,4 @@
-"""The name the Save lights as custom preset button saves under."""
+"""The name the Custom preset save from lights button saves under."""
 
 from __future__ import annotations
 
