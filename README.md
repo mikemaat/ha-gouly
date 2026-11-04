@@ -169,9 +169,7 @@ From 900px wide the dialog is laid out in two columns; narrower than that, and o
 stacks.
 
 If your dashboards are in YAML mode, the integration can't edit their resources, so it loads the
-card on every page instead; nothing to do there either. If you installed the old separate
-**Gouly Card** from HACS, remove it (and its `/hacsfiles/ha-gouly-card/...` resource): this one
-replaces it.
+card on every page instead; nothing to do there either.
 
 Use it or don't - the favourites, presets and services below behave the same either way, and
 automations never depend on it.
