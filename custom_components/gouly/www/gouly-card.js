@@ -635,19 +635,15 @@ class GoulyCard extends HTMLElement {
   }
 }
 
-// The old standalone card may still be installed alongside this one; whichever loads first wins,
-// and the other must not throw for defining the element twice.
-if (!customElements.get("gouly-card")) {
-  customElements.define("gouly-card", GoulyCard);
+customElements.define("gouly-card", GoulyCard);
 
-  window.customCards = window.customCards || [];
-  window.customCards.push({
-    type: "gouly-card",
-    name: "Gouly Light",
-    description: "A Gouly light with its presets and favourites in Home Assistant's own dialog.",
-    preview: false,
-    documentationURL: "https://github.com/mikemaat/ha-gouly#the-gouly-card",
-  });
-}
+window.customCards = window.customCards || [];
+window.customCards.push({
+  type: "gouly-card",
+  name: "Gouly Light",
+  description: "A Gouly light with its presets and favourites in Home Assistant's own dialog.",
+  preview: false,
+  documentationURL: "https://github.com/mikemaat/ha-gouly#the-gouly-card",
+});
 
 console.info(`%c GOULY-CARD %c ${VERSION} `, "color:#fff;background:#03a9f4;font-weight:700", "color:#03a9f4;background:#fff");
