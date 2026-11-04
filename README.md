@@ -17,8 +17,8 @@ from Home Assistant. No cloud: Home Assistant talks to the controller directly o
 - Custom presets: save a scene made in the Gouly app from the lights into Home Assistant
 - Instant updates, including changes made from the Gouly app (local push)
 - Finds the controller on your network automatically, and follows it if its IP address changes
-- A companion [Gouly Card](https://github.com/mikemaat/ha-gouly-card) for browsing the presets,
-  optional - everything here works with Home Assistant's own controls
+- A [Gouly card](#the-gouly-card) for browsing the presets, included and set up for you,
+  optional to use - everything here works with Home Assistant's own controls
 
 ## Supported hardware
 
@@ -141,12 +141,37 @@ name** and **Custom preset save from lights** controls are always there, see
 
 Everything above works with Home Assistant's own light dialog and the entities this integration
 creates - no extra card needed. But picking from 2,600 presets through a dropdown is a poor way to
-spend an evening, so there's a companion card:
-**[Gouly Card](https://github.com/mikemaat/ha-gouly-card)**.
+spend an evening, so the integration comes with a card for it.
 
 It keeps Home Assistant's own light dialog and adds the preset library to it: a folder menu, a
-search box, favourites as one-tap buttons, and a star on every preset. Install it from HACS as a
-**Dashboard** repository; it needs nothing configured beyond the light's entity id.
+search box, favourites as one-tap buttons, and a star on every preset. There's nothing to install:
+the integration adds it to your dashboards' resources when it starts, so after adding the
+integration just reload your browser and add a **Manual** card:
+
+```yaml
+type: custom:gouly-card
+entity: light.christmas_lights_front
+```
+
+`entity` is the only required option. The card finds the preset, effect speed and favourite
+entities from the same device, whatever they're named.
+
+| Option | Default | What it does |
+|---|---|---|
+| `entity` | required | The Gouly light |
+| `name` | the light's name | Title shown on the row and dialog |
+| `icon` | `mdi:snowflake` | Icon on the row; tap it to toggle the light |
+| `select_preset_folder` | found automatically | Preset folder select entity |
+| `select_preset` | found automatically | Preset name select entity |
+| `number_effect_speed` | found automatically | Effect speed number entity |
+
+From 900px wide the dialog is laid out in two columns; narrower than that, and on a phone, it
+stacks.
+
+If your dashboards are in YAML mode, the integration can't edit their resources, so it loads the
+card on every page instead; nothing to do there either. If you installed the old separate
+**Gouly Card** from HACS, remove it (and its `/hacsfiles/ha-gouly-card/...` resource): this one
+replaces it.
 
 Use it or don't - the favourites, presets and services below behave the same either way, and
 automations never depend on it.
@@ -162,11 +187,11 @@ Browsing 2,600 presets from a dropdown is fine occasionally, but for the ones yo
 1. Pick a **Preset folder**, then a **Preset name** (the lights change as you pick).
 2. Press **Add preset to favourites**.
 
-(With the [Gouly Card](https://github.com/mikemaat/ha-gouly-card) it's the star beside each preset
+(With the [Gouly card](#the-gouly-card) it's the star beside each preset
 instead; these three controls are how it's done without the card.)
 
 Favourites are published as the light's `favourite_presets` attribute, which the
-[Gouly Card](https://github.com/mikemaat/ha-gouly-card) shows as one-tap buttons in the light's
+[Gouly card](#the-gouly-card) shows as one-tap buttons in the light's
 dialog. **Configure > Favourite presets** removes them, and they can be managed from scripts and
 automations - which is what the card does.
 

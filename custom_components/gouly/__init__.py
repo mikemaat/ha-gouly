@@ -8,7 +8,10 @@ from homeassistant.components import network
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
+from .card import async_register_card, async_unregister_card
 from .connection import GoulyConnection
 from .const import (
     CONF_DEVICE_ID,
@@ -16,6 +19,7 @@ from .const import (
     CONF_LOCAL_KEY,
     CONF_PROTOCOL_VERSION,
     DEFAULT_PROTOCOL_VERSION,
+    DOMAIN,
 )
 from .discovery import discover, networks_for_addresses
 from .presets import load as load_presets
@@ -31,9 +35,17 @@ PLATFORMS: list[Platform] = [
 
 type GoulyConfigEntry = ConfigEntry[GoulyConnection]
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 # The options as they were when the entry was last set up, so an update can be told apart
 # from the favourites simply having been restarred.
 _last_options: dict[str, dict] = {}
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the Gouly card and add it to the dashboards."""
+    await async_register_card(hass)
+    return True
 
 
 async def async_get_scan_networks(hass: HomeAssistant) -> list[ipaddress.IPv4Network]:
@@ -79,6 +91,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GoulyConfigEntry) -> boo
     connection.start()
 
     async_register_services(hass)
+    # Again here, in case the card was taken off the dashboards when the last controller was
+    # removed and this is a new one added since, without a restart.
+    await async_register_card(hass)
     _last_options[entry.entry_id] = dict(entry.options)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -126,3 +141,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: GoulyConfigEntry) -> bo
         await hass.async_add_executor_job(entry.runtime_data.stop)
         _last_options.pop(entry.entry_id, None)
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: GoulyConfigEntry) -> None:
+    """Take the card off the dashboards when the last controller is removed."""
+    remaining = [
+        other for other in hass.config_entries.async_entries(DOMAIN) if other.entry_id != entry.entry_id
+    ]
+    if not remaining:
+        await async_unregister_card(hass)
